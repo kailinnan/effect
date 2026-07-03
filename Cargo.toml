@@ -1,0 +1,25 @@
+[package]
+name = "effect"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tao = "0.35.3"
+wry = "0.55.1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[[bin]]
+name = "effect"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
