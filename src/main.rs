@@ -18,11 +18,13 @@ use wry::{
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let command = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "start".to_string());
+    let mut args = std::env::args().skip(1);
+    let command = args.next().unwrap_or_else(|| "start".to_string());
     match command.as_str() {
-        "start" => run_wallpaper(),
+        "start" => {
+            let project = args.next().unwrap_or_else(|| "clouds".to_string());
+            run_wallpaper(&project)
+        }
         "stop" => {
             #[cfg(target_os = "windows")]
             windows_wallpaper::stop_wallpaper();
@@ -47,19 +49,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             Ok(())
         }
         _ => {
-            eprintln!("Usage: cargo run -- [start|stop|status]");
+            eprintln!("Usage: cargo run -- [start [static-project]|stop|status]");
             Ok(())
         }
     }
 }
 
-fn run_wallpaper() -> Result<(), Box<dyn Error>> {
+fn run_wallpaper(project: &str) -> Result<(), Box<dyn Error>> {
+    let asset_root = static_project_root(project)?;
+
     if pid_file_process_exists() {
-        println!("Wallpaper is already running.");
-        return Ok(());
+        stop_by_pid_file();
+        #[cfg(target_os = "windows")]
+        windows_wallpaper::refresh_desktop();
     }
 
-    let asset_root = clouds_asset_root()?;
     write_pid_file()?;
     let event_loop = EventLoop::new();
 
@@ -91,7 +95,7 @@ fn run_wallpaper() -> Result<(), Box<dyn Error>> {
             position: LogicalPosition::new(0, 0).into(),
             size: LogicalSize::new(bounds.width as u32, bounds.height as u32).into(),
         })
-        .with_url("effect://clouds/index.html")
+        .with_url("effect://index.html")
         .build_as_child(&window)?;
 
     #[cfg(target_os = "windows")]
@@ -216,11 +220,30 @@ fn screen_bounds(event_loop: &EventLoop<()>) -> Bounds {
     }
 }
 
-fn clouds_asset_root() -> Result<PathBuf, Box<dyn Error>> {
-    Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+fn static_project_root(project: &str) -> Result<PathBuf, Box<dyn Error>> {
+    if project.is_empty()
+        || project.contains('/')
+        || project.contains('\\')
+        || project == "."
+        || project == ".."
+    {
+        return Err(format!("invalid static project name: {project}").into());
+    }
+
+    let static_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("static")
-        .join("clouds")
-        .canonicalize()?)
+        .canonicalize()?;
+    let project_root = static_root.join(project).canonicalize()?;
+
+    if !project_root.starts_with(&static_root) {
+        return Err("blocked path outside static".into());
+    }
+
+    if !project_root.join("index.html").is_file() {
+        return Err(format!("missing index.html in static/{project}").into());
+    }
+
+    Ok(project_root)
 }
 
 fn asset_response(
@@ -236,7 +259,7 @@ fn asset_response(
 
     let path = root.join(relative_path).canonicalize()?;
     if !path.starts_with(root) {
-        return Err("blocked path outside static/clouds".into());
+        return Err("blocked path outside selected static project".into());
     }
 
     Response::builder()
