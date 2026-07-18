@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Three.js 粒子球体变换</title>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #101833 0%, #02030a 72%);
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+    }
+
+    #info {
+      position: fixed;
+      left: 24px;
+      top: 24px;
+      z-index: 10;
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 14px;
+      line-height: 1.7;
+      letter-spacing: 1px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    #info b {
+      color: #8fd3ff;
+      font-size: 16px;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.82);
+      background: #02030a;
+      font-size: 15px;
+      letter-spacing: 2px;
+      transition: opacity 0.6s ease;
+      pointer-events: none;
+    }
+
+    #loading.hide {
+      opacity: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loading">LOADING THREE.JS...</div>
+
+  <!-- <div id="info">
+    <b>Three.js 粒子球体变换</b><br />
+    Sphere / Heart / Ring / Wave 自动变换<br />
+    鼠标拖动旋转，滚轮缩放
+  </div> -->
+
+  <!-- 
+    importmap 作用：
+    OrbitControls.js 里面会 import 'three'
+    浏览器不知道 three 是谁，所以这里映射到本地 three.module.js
+  -->
+  <script src="./js/three.min.js"></script>
+  <script src="./js/OrbitControls.global.js"></script>
+  <script src="./js/CSS3DRenderer.global.js"></script>
+  <script src="./custom-plane.js"></script>
+
+  <script>
+
+    let scene;
+    let camera;
+    let renderer;
+    let controls;
+    let particles;
+    let geometry;
+    let material;
+
+    const PARTICLE_COUNT = 12000;
+
+    const positions = new Float32Array(PARTICLE_COUNT * 3);
+    const colors = new Float32Array(PARTICLE_COUNT * 3);
+
+    const targets = {
+      sphere: new Float32Array(PARTICLE_COUNT * 3),
+      heart: new Float32Array(PARTICLE_COUNT * 3),
+      ring: new Float32Array(PARTICLE_COUNT * 3),
+      wave: new Float32Array(PARTICLE_COUNT * 3)
+    };
+
+    const targetNames = ["sphere", "heart", "ring", "wave"];
+
+    let currentTarget = targets.sphere;
+    let currentTargetIndex = 0;
+
+    init();
+    animate();
+
+    /*
+      初始化 Three.js 场景、相机、渲染器、控制器和基础对象。
+      页面加载后会先创建所有目标形态，再创建粒子和星空背景。
+    */
+    function init() {
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+
+      camera.position.set(0, 0, 9);
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true
+      });
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      document.body.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.enablePan = false;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.5;
+      controls.minDistance = 4;
+      controls.maxDistance = 16;
+
+      createTargets();
+      createParticles();
+      createStarField();
+
+      setInterval(changeTarget, 3500);
+
+      window.addEventListener("resize", onResize);
+
+      const loading = document.getElementById("loading");
+      setTimeout(() => {
+        loading.classList.add("hide");
+      }, 400);
+    }
+
+    /*
+      预先生成所有粒子的目标坐标。
+      每个粒子都会拥有球体、爱心、圆环、波浪四组目标位置，动画时在这些坐标之间插值移动。
+    */
+    function createTargets() {
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3;
+
+        createSphereTarget(i3);
+        createHeartTarget(i3);
+        createRingTarget(i3);
+        createWaveTarget(i3);
+      }
+    }
+
+    /*
+      为单个粒子生成球体形态下的目标坐标。
+      i3 是当前粒子在一维 Float32Array 中的起始下标，依次存放 x、y、z。
+    */
+    function createSphereTarget(i3) {
+      const u = Math.random();
+      const v = Math.random();
+
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+
+      const r = 3.0 + Math.random() * 0.12;
+
+      targets.sphere[i3] = r * Math.sin(phi) * Math.cos(theta);
+      targets.sphere[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      targets.sphere[i3 + 2] = r * Math.cos(phi);
+    }
+
+    /*
+      为单个粒子生成爱心形态下的目标坐标。
+      使用经典二维爱心曲线计算 x、y，并给 z 轴增加少量随机厚度。
+    */
+    function createHeartTarget(i3) {
+      const t = Math.random() * Math.PI * 2;
+
+      let x = 16 * Math.pow(Math.sin(t), 3);
+
+      let y =
+        13 * Math.cos(t) -
+        5 * Math.cos(2 * t) -
+        2 * Math.cos(3 * t) -
+        Math.cos(4 * t);
+
+      x *= 0.16;
+      y *= 0.16;
+
+      const z = (Math.random() - 0.5) * 1.25;
+
+      targets.heart[i3] = x;
+      targets.heart[i3 + 1] = y - 0.35;
+      targets.heart[i3 + 2] = z;
+    }
+
+    /*
+      为单个粒子生成圆环形态下的目标坐标。
+      通过主半径和管道半径组合出类似甜甜圈的三维环面分布。
+    */
+    function createRingTarget(i3) {
+      const angle = Math.random() * Math.PI * 2;
+
+      const mainRadius = 2.55;
+      const tubeRadius = 0.42;
+
+      const tubeAngle = Math.random() * Math.PI * 2;
+
+      const r = mainRadius + Math.cos(tubeAngle) * tubeRadius;
+
+      targets.ring[i3] = Math.cos(angle) * r;
+      targets.ring[i3 + 1] = Math.sin(tubeAngle) * tubeRadius;
+      targets.ring[i3 + 2] = Math.sin(angle) * r;
+    }
+
+    /*
+      为单个粒子生成波浪平面形态下的目标坐标。
+      x、z 随机铺开，y 由正弦和余弦函数叠加形成起伏。
+    */
+    function createWaveTarget(i3) {
+      const x = (Math.random() - 0.5) * 7.5;
+      const z = (Math.random() - 0.5) * 7.5;
+
+      const y =
+        Math.sin(x * 1.8) * 0.45 +
+        Math.cos(z * 1.6) * 0.45;
+
+      targets.wave[i3] = x;
+      targets.wave[i3 + 1] = y;
+      targets.wave[i3 + 2] = z;
+    }
+
+    /*
+      创建主粒子系统。
+      初始化粒子位置、颜色、BufferGeometry 和 PointsMaterial，然后把 Points 加入场景。
+    */
+    function createParticles() {
+      geometry = new THREE.BufferGeometry();
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3;
+
+        positions[i3] = targets.sphere[i3];
+        positions[i3 + 1] = targets.sphere[i3 + 1];
+        positions[i3 + 2] = targets.sphere[i3 + 2];
+
+        const color = new THREE.Color();
+
+        const hue = 0.55 + Math.random() * 0.18;
+        const saturation = 0.85;
+        const lightness = 0.58 + Math.random() * 0.15;
+
+        color.setHSL(hue, saturation, lightness);
+
+        colors[i3] = color.r;
+        colors[i3 + 1] = color.g;
+        colors[i3 + 2] = color.b;
+      }
+
+      geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+      );
+
+      geometry.setAttribute(
+        "color",
+        new THREE.BufferAttribute(colors, 3)
+      );
+
+      material = new THREE.PointsMaterial({
+        size: 0.032,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      particles = new THREE.Points(geometry, material);
+
+      scene.add(particles);
+    }
+
+    /*
+      创建远处星空背景粒子。
+      星星不参与形态变换，只作为空间背景提升画面层次。
+    */
+    function createStarField() {
+      const starCount = 1600;
+
+      const starPositions = new Float32Array(starCount * 3);
+      const starColors = new Float32Array(starCount * 3);
+
+      for (let i = 0; i < starCount; i++) {
+        const i3 = i * 3;
+
+        starPositions[i3] = (Math.random() - 0.5) * 45;
+        starPositions[i3 + 1] = (Math.random() - 0.5) * 45;
+        starPositions[i3 + 2] = (Math.random() - 0.5) * 45;
+
+        const c = new THREE.Color();
+        c.setHSL(0.58, 0.5, 0.75 + Math.random() * 0.2);
+
+        starColors[i3] = c.r;
+        starColors[i3 + 1] = c.g;
+        starColors[i3 + 2] = c.b;
+      }
+
+      const starGeometry = new THREE.BufferGeometry();
+
+      starGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(starPositions, 3)
+      );
+
+      starGeometry.setAttribute(
+        "color",
+        new THREE.BufferAttribute(starColors, 3)
+      );
+
+      const starMaterial = new THREE.PointsMaterial({
+        size: 0.018,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const stars = new THREE.Points(starGeometry, starMaterial);
+
+      scene.add(stars);
+    }
+
+    /*
+      切换当前目标形态。
+      按 targetNames 的顺序循环切换，并同步刷新粒子颜色主题。
+    */
+    function changeTarget() {
+      currentTargetIndex = (currentTargetIndex + 1) % targetNames.length;
+      currentTarget = targets[targetNames[currentTargetIndex]];
+
+      updateParticleColor(targetNames[currentTargetIndex]);
+    }
+
+    /*
+      根据目标形态更新粒子颜色。
+      type 用来决定基础色相，再给每个粒子加入少量随机变化，避免颜色过于单一。
+    */
+    function updateParticleColor(type) {
+      const colorAttr = geometry.attributes.color.array;
+
+      let baseHue = 0.56;
+
+      if (type === "sphere") baseHue = 0.56;
+      if (type === "heart") baseHue = 0.94;
+      if (type === "ring") baseHue = 0.13;
+      if (type === "wave") baseHue = 0.48;
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3;
+
+        const color = new THREE.Color();
+
+        color.setHSL(
+          baseHue + Math.random() * 0.06,
+          0.9,
+          0.58 + Math.random() * 0.18
+        );
+
+        colorAttr[i3] = color.r;
+        colorAttr[i3 + 1] = color.g;
+        colorAttr[i3 + 2] = color.b;
+      }
+
+      geometry.attributes.color.needsUpdate = true;
+    }
+
+    /*
+      主动画循环。
+      每帧把粒子当前位置缓慢插值到当前目标坐标，同时添加细微抖动和整体旋转。
+    */
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = performance.now() * 0.001;
+
+      const pos = geometry.attributes.position.array;
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3;
+
+        pos[i3] += (currentTarget[i3] - pos[i3]) * 0.035;
+        pos[i3 + 1] += (currentTarget[i3 + 1] - pos[i3 + 1]) * 0.035;
+        pos[i3 + 2] += (currentTarget[i3 + 2] - pos[i3 + 2]) * 0.035;
+
+        pos[i3 + 1] += Math.sin(time * 2.2 + i * 0.012) * 0.0018;
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+
+      particles.rotation.y += 0.0015;
+      particles.rotation.x = Math.sin(time * 0.25) * 0.14;
+      particles.rotation.z = Math.cos(time * 0.18) * 0.08;
+
+      controls.update();
+
+      renderer.render(scene, camera);
+    }
+
+    /*
+      响应浏览器窗口尺寸变化。
+      更新相机宽高比、投影矩阵和渲染器尺寸，保证画面不被拉伸。
+    */
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    }
+  </script>
+</body>
+</html>

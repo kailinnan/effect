@@ -1,0 +1,672 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Three.js DIV 球体变换</title>
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #101832 0%, #02030a 75%);
+            font-family: Arial, "Microsoft YaHei", sans-serif;
+        }
+
+        #info {
+            position: fixed;
+            left: 24px;
+            top: 24px;
+            z-index: 10;
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 14px;
+            line-height: 1.8;
+            letter-spacing: 1px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        #info b {
+            color: #8fd3ff;
+            font-size: 16px;
+        }
+
+        #buttons {
+            position: fixed;
+            left: 24px;
+            bottom: 24px;
+            z-index: 20;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            max-width: min(920px, calc(100vw - 48px));
+        }
+
+        button {
+            padding: 9px 16px;
+            border: 1px solid rgba(120, 210, 255, 0.45);
+            background: rgba(8, 18, 35, 0.72);
+            color: rgba(220, 245, 255, 0.95);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        button:hover {
+            background: rgba(60, 160, 255, 0.28);
+            transform: translateY(-2px);
+        }
+
+        .card {
+            width: 110px;
+            height: 140px;
+            box-sizing: border-box;
+            border: 1px solid rgba(100, 210, 255, 0.36);
+            background:
+                linear-gradient(145deg,
+                    rgba(45, 180, 255, 0.26),
+                    rgba(90, 60, 255, 0.14));
+            border-radius: 16px;
+            /* box-shadow:
+        0 0 18px rgba(60, 190, 255, 0.26),
+        inset 0 0 18px rgba(255, 255, 255, 0.05); */
+            color: white;
+            text-align: center;
+            cursor: default;
+            user-select: none;
+            overflow: hidden;
+            transition:
+                border-color 0.2s ease,
+                background 0.2s ease,
+                filter 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(150, 230, 255, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(60, 190, 255, 0.32),
+                    rgba(90, 80, 255, 0.2));
+        }
+
+        .card.hover-glow:hover {
+            background:
+                linear-gradient(145deg,
+                    rgba(60, 220, 255, 0.38),
+                    rgba(70, 110, 255, 0.22));
+        }
+
+        .card.hover-lift:hover {
+            border-color: rgba(255, 235, 150, 0.85);
+            background:
+                linear-gradient(145deg,
+                    rgba(255, 200, 80, 0.28),
+                    rgba(45, 180, 255, 0.18));
+        }
+
+        .card.hover-coral:hover {
+            border-color: rgba(255, 145, 170, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(255, 95, 130, 0.3),
+                    rgba(90, 60, 255, 0.16));
+        }
+
+        .card.hover-mint:hover {
+            border-color: rgba(120, 255, 195, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(90, 255, 190, 0.26),
+                    rgba(45, 180, 255, 0.2));
+        }
+
+        .card.hover-violet:hover {
+            border-color: rgba(200, 160, 255, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(155, 105, 255, 0.3),
+                    rgba(45, 180, 255, 0.16));
+        }
+
+        .card.auto-hover {
+            filter: brightness(1.18);
+        }
+
+        .card.hover-glow.auto-hover {
+            border-color: rgba(150, 230, 255, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(60, 220, 255, 0.38),
+                    rgba(70, 110, 255, 0.22));
+        }
+
+        .card.hover-lift.auto-hover {
+            border-color: rgba(255, 235, 150, 0.85);
+            background:
+                linear-gradient(145deg,
+                    rgba(255, 200, 80, 0.28),
+                    rgba(45, 180, 255, 0.18));
+        }
+
+        .card.hover-coral.auto-hover {
+            border-color: rgba(255, 145, 170, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(255, 95, 130, 0.3),
+                    rgba(90, 60, 255, 0.16));
+        }
+
+        .card.hover-mint.auto-hover {
+            border-color: rgba(120, 255, 195, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(90, 255, 190, 0.26),
+                    rgba(45, 180, 255, 0.2));
+        }
+
+        .card.hover-violet.auto-hover {
+            border-color: rgba(200, 160, 255, 0.9);
+            background:
+                linear-gradient(145deg,
+                    rgba(155, 105, 255, 0.3),
+                    rgba(45, 180, 255, 0.16));
+        }
+
+        .card .num {
+            margin-top: 18px;
+            font-size: 13px;
+            color: rgba(180, 230, 255, 0.72);
+        }
+
+        .card .symbol {
+            margin-top: 12px;
+            font-size: 34px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.96);
+        }
+
+        .card .name {
+            margin-top: 10px;
+            font-size: 12px;
+            color: rgba(220, 245, 255, 0.74);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- <div id="info">
+        <b>Three.js DIV 球体变换</b><br />
+        CSS3DRenderer：真实 HTML div 组成 3D 球体<br />
+        鼠标拖动旋转，滚轮缩放
+    </div> -->
+<!-- 
+    <div id="buttons">
+        <button data-type="sphere">球体</button>
+        <button data-type="helix">螺旋</button>
+        <button data-type="grid">网格</button>
+        <button data-type="plane">平面</button>
+        <button data-type="customPlane">自定义</button>
+    </div> -->
+
+    <script src="./js/three.min.js"></script>
+    <script src="./js/OrbitControls.global.js"></script>
+    <script src="./js/CSS3DRenderer.global.js"></script>
+    <script src="./custom-plane.js"></script>
+    <script>
+        let camera;
+        let scene;
+        let renderer;
+        let controls;
+        let activeTransforms = [];
+        let marqueeIndex = 0;
+        let viewResetTween = null;
+
+        const objects = [];
+        const targets = {
+            sphere: [],
+            helix: [],
+            grid: [],
+            plane: [],
+            customPlane: []
+        };
+
+        const CARD_COUNT = 100;
+        const SHAPE_TYPES = [
+            "sphere",
+            "helix",
+            "grid",
+            "plane",
+            "customPlane"
+        ];
+        const HOVER_EFFECTS = [
+            "hover-glow",
+            "hover-lift",
+            "hover-coral",
+            "hover-mint",
+            "hover-violet"
+        ];
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                1,
+                10000
+            );
+
+            camera.position.z = 2600;
+
+            renderer = new CSS3DRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.minDistance = 900;
+            controls.maxDistance = 5000;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.8;
+
+            createObjects();
+            createSphereTargets();
+            createHelixTargets();
+            createGridTargets();
+            createPlaneTargets();
+            loadPlaneTargetsFromData(window.customPlaneData);
+            transform("sphere", 1800, controls);
+
+            document.querySelectorAll("button").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const type = button.dataset.type;
+                    transform(type, 1400, controls);
+                });
+            });
+            let lastShapeType = null;
+            setInterval(() => {
+                let type = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)];
+
+                while (type === lastShapeType && SHAPE_TYPES.length > 1) {
+                    type = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)];
+                }
+
+                lastShapeType = type;
+                // const type = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)];
+                transform(type, 1800, controls);
+            }, 4500);
+
+            setInterval(triggerMarqueeCardEffect, 200);
+
+            window.addEventListener("resize", onResize);
+        }
+        function loadPlaneTargetsFromData(data) {
+            targets[data.name] = [];
+
+            for (let i = 0; i < CARD_COUNT; i++) {
+                const item = data.items[i];
+                const object = new THREE.Object3D();
+
+                if (item) {
+                    object.position.x = item.x;
+                    object.position.y = item.y;
+                    object.position.z = item.z ?? 0;
+
+                    object.rotation.x = item.rx ?? 0;
+                    object.rotation.y = item.ry ?? 0;
+                    object.rotation.z = item.rz ?? 0;
+                }
+
+                targets[data.name].push(object);
+            }
+
+            centerTargetGroup(data.name, data.name);
+        }
+        function createObjects() {
+            for (let i = 0; i < CARD_COUNT; i++) {
+                const element = document.createElement("div");
+                element.className = "card";
+                element.classList.add(HOVER_EFFECTS[Math.floor(Math.random() * HOVER_EFFECTS.length)]);
+
+                const num = document.createElement("div");
+                num.className = "num";
+                num.textContent = String(i + 1).padStart(3, "0");
+
+                const symbol = document.createElement("div");
+                symbol.className = "symbol";
+                symbol.textContent = getSymbol(i);
+
+                const name = document.createElement("div");
+                name.className = "name";
+                name.textContent = "DIV NODE";
+
+                element.appendChild(num);
+                element.appendChild(symbol);
+                element.appendChild(name);
+
+                const object = new CSS3DObject(element);
+
+                object.position.x = Math.random() * 4000 - 2000;
+                object.position.y = Math.random() * 4000 - 2000;
+                object.position.z = Math.random() * 4000 - 2000;
+
+                scene.add(object);
+                objects.push(object);
+            }
+        }
+
+        function createSphereTargets() {
+            const vector = new THREE.Vector3();
+
+            for (let i = 0; i < CARD_COUNT; i++) {
+                const phi = Math.acos(-1 + (2 * i) / CARD_COUNT);
+                const theta = Math.sqrt(CARD_COUNT * Math.PI) * phi;
+
+                const object = new THREE.Object3D();
+
+                const radius = 900;
+
+                object.position.setFromSphericalCoords(radius, phi, theta);
+
+                vector.copy(object.position).multiplyScalar(2);
+
+                object.lookAt(vector);
+
+                targets.sphere.push(object);
+            }
+
+            centerTargetGroup("sphere", "sphere");
+        }
+
+        function createHelixTargets() {
+            const vector = new THREE.Vector3();
+            const gapY = 14;
+            const centerOffsetY = (CARD_COUNT - 1) * gapY / 2;
+
+            for (let i = 0; i < CARD_COUNT; i++) {
+                const theta = i * 0.32 + Math.PI;
+                const y = centerOffsetY - i * gapY;
+
+                const object = new THREE.Object3D();
+
+                object.position.setFromCylindricalCoords(900, theta, y);
+
+                vector.x = object.position.x * 2;
+                vector.y = object.position.y;
+                vector.z = object.position.z * 2;
+
+                object.lookAt(vector);
+
+                targets.helix.push(object);
+            }
+
+            centerTargetGroup("helix", "helix");
+        }
+
+        function createGridTargets() {
+            const cols = 5;
+            const rows = 5;
+            const layers = Math.ceil(CARD_COUNT / (cols * rows));
+            const gapX = 360;
+            const gapY = 420;
+            const gapZ = 700;
+
+            for (let i = 0; i < CARD_COUNT; i++) {
+                const object = new THREE.Object3D();
+                const col = i % cols;
+                const row = Math.floor(i / cols) % rows;
+                const layer = Math.floor(i / (cols * rows));
+
+                object.position.x = (col - (cols - 1) / 2) * gapX;
+                object.position.y = ((rows - 1) / 2 - row) * gapY;
+                object.position.z = (layer - (layers - 1) / 2) * gapZ;
+
+                targets.grid.push(object);
+            }
+
+            centerTargetGroup("grid");
+        }
+
+        function createPlaneTargets() {
+            const cols = 20;
+            const rows = Math.ceil(CARD_COUNT / cols);
+            const gapX = 150;
+            const gapY = 190;
+
+            for (let i = 0; i < CARD_COUNT; i++) {
+                const object = new THREE.Object3D();
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+
+                object.position.x = (col - (cols - 1) / 2) * gapX;
+                object.position.y = ((rows - 1) / 2 - row) * gapY;
+                object.position.z = 0;
+
+                targets.plane.push(object);
+            }
+
+            centerTargetGroup("plane");
+        }
+
+
+
+        function centerTargetGroup(type, lookMode) {
+            const targetList = targets[type];
+            const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+            const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+            const center = new THREE.Vector3();
+            const lookAtTarget = new THREE.Vector3();
+
+            for (const object of targetList) {
+                min.min(object.position);
+                max.max(object.position);
+            }
+            // 自定义形状不做居中处理
+            if (lookMode != "customPlane") {
+                center.addVectors(min, max).multiplyScalar(0.5);
+
+            }
+
+            for (const object of targetList) {
+                object.position.sub(center);
+
+                if (lookMode === "sphere") {
+                    lookAtTarget.copy(object.position).multiplyScalar(2);
+                    object.lookAt(lookAtTarget);
+                }
+
+                if (lookMode === "helix") {
+                    lookAtTarget.set(
+                        object.position.x * 2,
+                        object.position.y,
+                        object.position.z * 2
+                    );
+                    object.lookAt(lookAtTarget);
+                }
+            }
+        }
+
+        function transform(type, duration, controls) {
+            if (type === "customPlane") {
+                duration = 2300;
+            }
+
+            const targetList = targets[type];
+            const startTime = performance.now();
+
+            if (!targetList || targetList.length < objects.length) return;
+
+            activeTransforms = [];
+
+            for (let i = 0; i < objects.length; i++) {
+                const object = objects[i];
+                const target = targetList[i];
+
+                activeTransforms.push({
+                    object,
+                    startPosition: object.position.clone(),
+                    startRotation: object.rotation.clone(),
+                    targetPosition: target.position,
+                    targetRotation: target.rotation,
+                    duration,
+                    startTime,
+                    delay: i * 3
+                });
+            }
+            if (type === "plane"||type=="grid"||type=="customPlane") {
+                controls.autoRotate = false;
+
+                setTimeout(() => {
+                    animateResetView(1500);
+                }, 700);
+                return
+            }
+            controls.autoRotate = true;
+
+        }
+        // 平滑重置旋转角度
+        function animateResetView(duration = 900) {
+            const offset = camera.position.clone().sub(controls.target);
+            const startSpherical = new THREE.Spherical().setFromVector3(offset);
+            const targetSpherical = new THREE.Spherical(2600, Math.PI / 2, 0);
+
+            viewResetTween = {
+                startTime: performance.now(),
+                duration,
+                startSpherical,
+                thetaDelta: shortestAngleDelta(startSpherical.theta, targetSpherical.theta),
+                phiDelta: targetSpherical.phi - startSpherical.phi,
+                radiusDelta: targetSpherical.radius - startSpherical.radius,
+                startTarget: controls.target.clone(),
+                targetTarget: new THREE.Vector3(0, 0, 0)
+            };
+        }
+
+        function updateResetView(now) {
+            if (!viewResetTween) return;
+
+            const t = Math.min((now - viewResetTween.startTime) / viewResetTween.duration, 1);
+            const k = easeInOutCubic(t);
+
+            const spherical = new THREE.Spherical(
+                viewResetTween.startSpherical.radius + viewResetTween.radiusDelta * k,
+                viewResetTween.startSpherical.phi + viewResetTween.phiDelta * k,
+                viewResetTween.startSpherical.theta + viewResetTween.thetaDelta * k
+            );
+
+            controls.target.lerpVectors(
+                viewResetTween.startTarget,
+                viewResetTween.targetTarget,
+                k
+            );
+
+            camera.position
+                .setFromSpherical(spherical)
+                .add(controls.target);
+
+            camera.lookAt(controls.target);
+            controls.update();
+
+            if (t >= 1) {
+                controls.target.copy(viewResetTween.targetTarget);
+                camera.position.set(0, 0, 2600);
+                camera.lookAt(controls.target);
+                controls.update();
+                viewResetTween = null;
+            }
+        }
+
+        function shortestAngleDelta(from, to) {
+            let delta = (to - from) % (Math.PI * 2);
+
+            if (delta > Math.PI) delta -= Math.PI * 2;
+            if (delta < -Math.PI) delta += Math.PI * 2;
+
+            return delta;
+        }
+        function updateTransforms(now) {
+            for (let i = activeTransforms.length - 1; i >= 0; i--) {
+                const item = activeTransforms[i];
+                const elapsed = now - item.startTime - item.delay;
+
+                if (elapsed < 0) continue;
+
+                const t = Math.min(elapsed / item.duration, 1);
+                const k = easeInOutCubic(t);
+                const object = item.object;
+                const startPosition = item.startPosition;
+                const startRotation = item.startRotation;
+                const targetPosition = item.targetPosition;
+                const targetRotation = item.targetRotation;
+
+                object.position.x = startPosition.x + (targetPosition.x - startPosition.x) * k;
+                object.position.y = startPosition.y + (targetPosition.y - startPosition.y) * k;
+                object.position.z = startPosition.z + (targetPosition.z - startPosition.z) * k;
+
+                object.rotation.x = startRotation.x + (targetRotation.x - startRotation.x) * k;
+                object.rotation.y = startRotation.y + (targetRotation.y - startRotation.y) * k;
+                object.rotation.z = startRotation.z + (targetRotation.z - startRotation.z) * k;
+
+                if (t >= 1) {
+                    activeTransforms.splice(i, 1);
+                }
+            }
+        }
+
+        function easeInOutCubic(t) {
+            return t < 0.5
+                ? 4 * t * t * t
+                : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        function getSymbol(i) {
+            const symbols = [
+                "AI", "JS", "GL", "3D", "CSS",
+                "UX", "GPU", "WEB", "VR", "UI",
+                "RS", "DOM", "X", "Q", "∞"
+            ];
+
+            return symbols[i % symbols.length];
+        }
+
+        function triggerMarqueeCardEffect() {
+            const object = objects[marqueeIndex];
+
+            if (!object) return;
+
+            object.element.classList.add("auto-hover");
+            marqueeIndex = (marqueeIndex + 1) % objects.length;
+
+            setTimeout(() => {
+                object.element.classList.remove("auto-hover");
+            }, 160);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+
+            updateTransforms(now);
+            updateResetView(now);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+
+</html>

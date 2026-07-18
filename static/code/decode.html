@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title></title>
+</head>
+<body>
+  <script type="text/javascript">
+    // 页面保持黑色、无外边距，并隐藏超出区域。
+    document.querySelector('body').style =
+      'overflow: hidden;background:rgb(0,0,0);margin:0;';
+
+    // 创建源代码中的 Canvas。
+    const canvas = document.createElement('canvas');
+    canvas.id = 'q';
+    document.querySelector('body').append(canvas);
+
+    // 源代码使用的是物理屏幕尺寸，不是浏览器窗口尺寸。
+    const screenInfo = window.screen;
+    const width = (canvas.width = screenInfo.width);
+    const height = (canvas.height = screenInfo.height);
+
+    // 保存每一列数字当前的纵坐标。
+    const dropPositions = [];
+
+    // 源代码固定创建 255 列，所有列从屏幕底部开始。
+    for (let i = 1; i < 0x100; i++) {
+      dropPositions.push(parseInt(screenInfo.height));
+    }
+
+    function draw() {
+      // 半透明黑色覆盖上一帧，产生拖尾。
+      canvas.getContext('2d').fillStyle = 'rgba(0,0,0,.05)';
+      canvas.getContext('2d').fillRect(0, 0, width, height);
+
+      // 绿色数字；源代码未设置 font，因此继续使用 Canvas 默认字体。
+      canvas.getContext('2d').fillStyle = '#0F0';
+
+      dropPositions.map(function (currentY, columnIndex) {
+        // 每一列随机绘制数字 0 或 1。
+        const text = [0, 1][parseInt(Math.random() * 2)];
+        const xPosition = columnIndex * 10;
+
+        canvas.getContext('2d').fillText(text, xPosition, currentY);
+
+        // 每帧生成 758～10758 的随机阈值。
+        // 当前 Y 超过阈值则回到顶部，否则继续向下移动 10 像素。
+        dropPositions[columnIndex] =
+          currentY > 758 + Math.random() * 10000
+            ? 0
+            : Number(currentY) + 10;
+      });
+    }
+
+    // 与源代码一致：每 60 毫秒绘制一次。
+    setInterval(draw, 0x3c);
+  </script>
+</body>
+</html>
