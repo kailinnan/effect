@@ -3,6 +3,17 @@
 Effect 是一个 Windows 原生动态壁纸管理器。它可以选择本地 HTML 文件，然后通过
 WebView2 将页面挂载到桌面图标层后方。
 
+核心组成
+[main.rs]：程序入口，仅支持 Windows，启动原生管理窗口。
+[ui.rs]管理窗口和交互逻辑，包括选择、应用、切换、停止与恢复。
+[wallpaper.rs]核心运行时。创建无边框 WebView2 窗口
+使用 effect://wallpaper/ 自定义协议加载本地资源
+将窗口挂载到 Windows WorkerW 桌面层
+独立线程运行壁纸事件循环
+
+[desktop.rs]通过 Windows IDesktopWallpaper COM 接口备份和恢复各显示器的静态壁纸、布局与背景色。
+[config.rs]保存上次选择的 HTML 路径和壁纸备份。
+[build.rs]嵌入 Windows Manifest，启用 DPI 感知、长路径和现代控件样式。
 ## 使用
 
 从仓库根目录启动：

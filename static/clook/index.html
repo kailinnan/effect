@@ -1,112 +1,1146 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MrRoot</title>
+  <title>MrRoot · Time Disc</title>
   <style>
+    :root {
+      --bg0: #060913;
+      --bg1: #0c1427;
+      --text: #edf4ff;
+      --muted: rgba(222, 234, 255, .54);
+      --line: rgba(148, 185, 255, .11);
+      --cyan: #4bdcff;
+      --violet: #8e72ff;
+      --pink: #ff77d6;
+      --intro-ease: cubic-bezier(.16, 1, .3, 1);
+      --time-ease: cubic-bezier(.22, .72, .18, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
     body {
-      font-size: 0px;
-      height: 100%;
       width: 100%;
-      padding: 0;
+      height: 100%;
       margin: 0;
-      position: absolute;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #cad6dd;
       overflow: hidden;
-      background-color: #141929;
-      font-family: unidreamLED;
     }
 
-    .NowData {
-      background-image: -webkit-linear-gradient(bottom, rgb(255 0 0), rgb(120 8 220));
-      background-size: 100% 20px;
+    body {
+      position: relative;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-family: "Segoe UI Variable", "Segoe UI", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 16% 18%, rgba(142, 114, 255, .18), transparent 25%),
+        radial-gradient(circle at 84% 22%, rgba(75, 220, 255, .14), transparent 26%),
+        radial-gradient(circle at 50% 84%, rgba(255, 119, 214, .10), transparent 29%),
+        linear-gradient(145deg, var(--bg0), var(--bg1) 52%, #080d1a 100%);
+      isolation: isolate;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,.014) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: radial-gradient(circle at center, #000 16%, transparent 77%);
+      opacity: .44;
+    }
+
+    .ambient,
+    .stars {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .ambient::before,
+    .ambient::after {
+      content: "";
+      position: absolute;
+      width: 42vmax;
+      height: 42vmax;
+      border-radius: 50%;
+      filter: blur(84px);
+      opacity: .18;
+      animation: drift 16s ease-in-out infinite;
+    }
+
+    .ambient::before {
+      left: -12%;
+      top: -8%;
+      background: radial-gradient(circle, rgba(142,114,255,.82), transparent 62%);
+    }
+
+    .ambient::after {
+      right: -14%;
+      bottom: -14%;
+      background: radial-gradient(circle, rgba(75,220,255,.78), transparent 62%);
+      animation-delay: -8s;
+    }
+
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 0 10px rgba(255,255,255,.44);
+      opacity: .56;
+      animation: twinkle var(--d) ease-in-out infinite;
+    }
+
+    .brand {
+      position: absolute;
+      left: 28px;
+      top: 24px;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    .brand-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .30em;
+      color: rgba(242,247,255,.94);
+      text-transform: uppercase;
+    }
+
+    .brand-sub {
+      margin-top: 8px;
+      font-size: 10px;
+      letter-spacing: .18em;
+      color: rgba(219,231,255,.42);
+      text-transform: uppercase;
+    }
+
+    .stage {
+      position: relative;
+      width: min(94vmin, 980px);
+      height: min(94vmin, 980px);
+      perspective: 1700px;
+      z-index: 2;
+    }
+
+    .clock {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transform-style: preserve-3d;
+      transform: translate(-50%, -39%) rotateX(-21deg) rotateY(15deg) rotateZ(-30deg) scale(.70);
+      filter: blur(10px) brightness(.70);
+      transition:
+        transform 1800ms var(--intro-ease),
+        opacity 900ms ease,
+        filter 1350ms var(--intro-ease);
+      will-change: transform, opacity, filter;
+    }
+
+    .clock.is-ready {
+      opacity: 1;
+      transform: translate(-50%, -50%) rotateX(9deg) rotateY(-4deg) rotateZ(0deg) scale(1);
+      filter: blur(0) brightness(1);
+      animation: idleFloat 8.5s ease-in-out 2s infinite;
+    }
+
+    .halo {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 91%;
+      height: 91%;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(.52) rotate(-22deg);
+      border-radius: 50%;
+      background:
+        conic-gradient(from 0deg, transparent 0 10%, rgba(75,220,255,.10) 18%, transparent 32% 58%, rgba(255,119,214,.08) 70%, transparent 88%),
+        radial-gradient(circle, rgba(116,138,255,.10), transparent 62%);
+      filter: blur(14px);
+      box-shadow: 0 0 95px rgba(89,108,255,.12);
+      transition: opacity 900ms ease 220ms, transform 1750ms var(--intro-ease) 140ms;
+    }
+
+    .clock.is-ready .halo {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1) rotate(0deg);
+      animation: haloLoop 21s linear 2s infinite;
+    }
+
+    .ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--size);
+      height: var(--size);
+      margin-left: calc(var(--size) / -2);
+      margin-top: calc(var(--size) / -2);
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      box-shadow: inset 0 0 26px rgba(255,255,255,.022), 0 0 28px rgba(90,120,255,.05);
+      opacity: 0;
+      transform-style: preserve-3d;
+      transform: translate3d(var(--intro-x), var(--intro-y), calc(var(--z) - 150px)) rotate(calc(var(--rot) + var(--intro-rot))) scale(.06);
+      filter: blur(9px) brightness(.68);
+      transition:
+        transform 1750ms var(--intro-ease) var(--intro-delay),
+        opacity 650ms ease var(--intro-delay),
+        filter 1300ms var(--intro-ease) var(--intro-delay);
+      will-change: transform, opacity, filter;
+    }
+
+    .ring::before,
+    .ring::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .ring::before {
+      inset: 5.5%;
+      border: 1px dashed rgba(255,255,255,.038);
+    }
+
+    .ring::after {
+      inset: -5px;
+      border-top: 1px solid rgba(121,162,255,.24);
+      border-right: 1px solid rgba(255,119,214,.14);
+      filter: drop-shadow(0 0 8px rgba(91,128,255,.12));
+      animation: orbitArc var(--arc-speed) linear infinite;
+    }
+
+    .secondBox { --size: 93%; --z: 0px;  --intro-x: -35vw; --intro-y: 21vh;  --intro-rot: -195deg; --intro-delay: 70ms;  --arc-speed: 22s; --breath-speed: 8.5s; }
+    .minuteBox { --size: 80%; --z: 14px; --intro-x: 31vw;  --intro-y: -23vh; --intro-rot: 162deg;  --intro-delay: 210ms; --arc-speed: 26s; --breath-speed: 9.3s; }
+    .hourBox   { --size: 67%; --z: 28px; --intro-x: -29vw; --intro-y: -19vh; --intro-rot: -138deg; --intro-delay: 350ms; --arc-speed: 30s; --breath-speed: 10.1s; }
+    .dayBox    { --size: 54%; --z: 42px; --intro-x: 25vw;  --intro-y: 21vh;  --intro-rot: 126deg;  --intro-delay: 490ms; --arc-speed: 34s; --breath-speed: 10.9s; }
+    .monthBox  { --size: 41%; --z: 56px; --intro-x: -18vw; --intro-y: 24vh;  --intro-rot: -104deg; --intro-delay: 630ms; --arc-speed: 38s; --breath-speed: 11.7s; }
+    .yearBox   { --size: 28%; --z: 70px; --intro-x: 0vw;   --intro-y: -31vh; --intro-rot: 92deg;   --intro-delay: 770ms; --arc-speed: 42s; --breath-speed: 12.5s; }
+
+    .minuteBox::after,
+    .dayBox::after,
+    .yearBox::after {
+      animation-direction: reverse;
+    }
+
+    .clock.is-ready .ring {
+      opacity: 1;
+      transform: translateZ(var(--z)) rotate(var(--rot)) scale(1);
+      filter: blur(0) brightness(1);
+      animation: ringBreath var(--breath-speed) ease-in-out 2s infinite;
+    }
+
+    .clock.intro-complete .ring {
+      transition: transform 720ms var(--time-ease), opacity 300ms ease, filter 360ms ease;
+    }
+
+    .time-item {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 50%;
+      height: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding-right: 8px;
+      transform-origin: 0 0;
+      transform: rotate(var(--angle));
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .time-label {
+      display: inline-block;
+      min-width: 18px;
+      text-align: center;
+      transform: rotate(calc(var(--counter) + var(--ring-counter, 0deg))) translateX(14px);
+      color: var(--muted);
+      font-size: clamp(10px, .86vw, 14px);
+      font-weight: 650;
+      letter-spacing: .055em;
+      white-space: nowrap;
+      text-shadow: 0 0 10px rgba(255,255,255,.04);
+      opacity: 0;
+      transition:
+        color .35s ease,
+        text-shadow .35s ease,
+        filter .35s ease,
+        opacity 650ms ease var(--label-delay, 1.55s),
+        transform 850ms var(--intro-ease) var(--label-delay, 1.55s);
+    }
+
+    .clock.is-ready .time-label {
+      opacity: 1;
+      transform: rotate(calc(var(--counter) + var(--ring-counter, 0deg))) translateX(0);
+    }
+
+    .clock.intro-complete .time-label {
+      transition:
+        color .35s ease,
+        text-shadow .35s ease,
+        filter .35s ease,
+        opacity .22s ease,
+        transform 720ms var(--time-ease);
+    }
+
+    .hourBox .time-label,
+    .dayBox .time-label,
+    .monthBox .time-label,
+    .yearBox .time-label {
+      font-weight: 700;
+    }
+
+    .yearBox .time-label {
+      font-size: clamp(9px, .74vw, 12px);
+      letter-spacing: .02em;
+    }
+
+    .NowData .time-label {
+      color: #fff;
+      font-weight: 800;
+      background: linear-gradient(180deg, #ffffff 4%, #a9caff 50%, #ff9de5 100%);
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
+      text-shadow:
+        0 0 12px rgba(255,255,255,.38),
+        0 0 24px rgba(111,151,255,.52),
+        0 0 34px rgba(255,103,212,.30);
+      filter: brightness(1.25);
     }
 
-    .yearBox {
-      height: 10vh;
-      width: 10vh;
+    .invalid-day {
+      opacity: .10;
+    }
+
+    .center-core {
       position: absolute;
-      display: flex;
-      font-size: 16px;
-      align-items: center;
-      justify-content: center;
+      left: 50%;
+      top: 50%;
+      width: 13%;
+      height: 13%;
+      opacity: 0;
+      transform: translate(-50%, -50%) translateZ(82px) scale(.65);
       border-radius: 50%;
-      transition: 1s;
-      background-image: -webkit-linear-gradient(bottom, rgb(255 0 0), rgb(120 8 220));
-      background-size: 100% 20px;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      border: 1px solid rgba(255,255,255,.065);
+      background:
+        radial-gradient(circle at 34% 28%, rgba(255,255,255,.055), transparent 36%),
+        radial-gradient(circle at center, rgba(17,25,45,.98), rgba(8,12,23,.98));
+      box-shadow:
+        inset 0 0 18px rgba(255,255,255,.022),
+        0 0 24px rgba(77,114,255,.07),
+        0 16px 38px rgba(0,0,0,.24);
+      transition: transform 1550ms var(--intro-ease) 850ms, opacity 700ms ease 850ms;
     }
 
-    .mounthBox {
-      height: 25vh;
-      width: 25vh;
+    .clock.is-ready .center-core {
+      opacity: 1;
+      transform: translate(-50%, -50%) translateZ(82px) scale(1);
+    }
+
+    .mechanism {
       position: absolute;
-      display: flex;
-      align-items: center;
-      border-radius: 50%;
-      transition: 1s;
+      left: 50%;
+      top: 50%;
+      width: 86%;
+      height: 86%;
+      z-index: -2;
+      opacity: 0;
+      transform-style: preserve-3d;
+      transform: translate(-50%, -50%) translateZ(-54px) scale(.72) rotate(-16deg);
+      filter: blur(8px) brightness(.66);
+      transition:
+        opacity 850ms ease 520ms,
+        transform 1750ms var(--intro-ease) 420ms,
+        filter 1300ms var(--intro-ease) 420ms;
+      pointer-events: none;
     }
 
-    .dayBox {
-      height: 40vh;
-      width: 40vh;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
+    .clock.is-ready .mechanism {
+      opacity: .78;
+      transform: translate(-50%, -50%) translateZ(-54px) scale(1) rotate(0deg);
+      filter: blur(0) brightness(1);
+    }
+
+    .mechanical-plate {
       position: absolute;
-      transition: 1s;
+      inset: 8%;
+      border-radius: 50%;
+      border: 1px solid rgba(129, 165, 255, .075);
+      background:
+        repeating-conic-gradient(from 0deg, rgba(139,176,255,.055) 0deg 1deg, transparent 1deg 15deg),
+        radial-gradient(circle, transparent 0 29%, rgba(101,137,224,.045) 30% 31%, transparent 32% 48%, rgba(101,137,224,.04) 49% 50%, transparent 51% 70%, rgba(101,137,224,.04) 71% 72%, transparent 73%);
+      box-shadow:
+        inset 0 0 40px rgba(122, 151, 255, .035),
+        0 0 40px rgba(42, 71, 150, .035);
+      animation: plateIdle 34s linear infinite;
     }
 
-    .hourBox {
-      height: 55vh;
-      width: 55vh;
+    .mechanical-plate::before,
+    .mechanical-plate::after {
+      content: "";
       position: absolute;
-      display: flex;
-      align-items: center;
-      transition: 1s;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .mechanical-plate::before {
+      inset: 12%;
+      border: 1px dashed rgba(158, 192, 255, .055);
+    }
+
+    .mechanical-plate::after {
+      inset: 31%;
+      border: 1px solid rgba(158, 192, 255, .07);
+      box-shadow: 0 0 24px rgba(75, 129, 255, .05);
+    }
+
+    .gear {
+      position: absolute;
+      left: calc(50% + var(--gx));
+      top: calc(50% + var(--gy));
+      width: var(--gear-size);
+      height: var(--gear-size);
+      border-radius: 50%;
+      opacity: var(--gear-opacity, .34);
+      transform: translate(-50%, -50%) rotate(var(--gear-rot, 0deg));
+      transform-origin: 50% 50%;
+      transition: transform 760ms cubic-bezier(.16, 1.28, .34, 1) var(--lag, 0ms), filter 420ms ease;
+      will-change: transform;
+    }
+
+    .gear::before,
+    .gear::after {
+      content: "";
+      position: absolute;
+      inset: 0;
       border-radius: 50%;
     }
 
-    .minuteBox {
-      height: 70vh;
-      width: 70vh;
-      position: absolute;
-      display: flex;
-      align-items: center;
-      border-radius: 50%;
-      transition: 1s;
+    .gear::before {
+      background: repeating-conic-gradient(
+        from 0deg,
+        rgba(168, 198, 255, .32) 0deg 2deg,
+        transparent 2deg 8deg
+      );
+      -webkit-mask: radial-gradient(circle, transparent 0 67%, #000 68% 100%);
+      mask: radial-gradient(circle, transparent 0 67%, #000 68% 100%);
+      filter: drop-shadow(0 0 5px rgba(91, 141, 255, .10));
     }
 
+    .gear::after {
+      inset: 19%;
+      border: 1px solid rgba(157, 190, 255, .14);
+      background:
+        radial-gradient(circle, rgba(173,204,255,.12) 0 8%, transparent 9% 38%, rgba(109,145,220,.08) 39% 42%, transparent 43%),
+        repeating-conic-gradient(from 8deg, rgba(145,180,248,.10) 0deg 7deg, transparent 7deg 30deg);
+      box-shadow: inset 0 0 14px rgba(255,255,255,.025);
+    }
+
+    .gear.g1 { --gx: 0%;   --gy: 0%;   --gear-size: 31%; --gear-opacity: .32; --lag: 0ms; }
+    .gear.g2 { --gx: -23%; --gy: -9%;  --gear-size: 22%; --gear-opacity: .29; --lag: 55ms; }
+    .gear.g3 { --gx: 22%;  --gy: -12%; --gear-size: 19%; --gear-opacity: .27; --lag: 110ms; }
+    .gear.g4 { --gx: -18%; --gy: 20%;  --gear-size: 18%; --gear-opacity: .26; --lag: 165ms; }
+    .gear.g5 { --gx: 19%;  --gy: 21%;  --gear-size: 24%; --gear-opacity: .27; --lag: 220ms; }
+    .gear.g6 { --gx: -7%;  --gy: -28%; --gear-size: 15%; --gear-opacity: .25; --lag: 275ms; }
+    .gear.g7 { --gx: 30%;  --gy: 8%;   --gear-size: 13%; --gear-opacity: .22; --lag: 330ms; }
+    .gear.g8 { --gx: -31%; --gy: 7%;   --gear-size: 14%; --gear-opacity: .22; --lag: 385ms; }
+    .gear.g9 { --gx: 4%;   --gy: 29%;  --gear-size: 16%; --gear-opacity: .23; --lag: 440ms; }
+
+    .linkage {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--link-width);
+      height: 5px;
+      border-radius: 999px;
+      transform-origin: 10px 50%;
+      transform: translate(var(--lx), var(--ly)) rotate(var(--link-rot, 0deg));
+      background: linear-gradient(90deg, rgba(171,199,255,.30), rgba(92,133,222,.10));
+      box-shadow: inset 0 0 3px rgba(255,255,255,.12), 0 0 8px rgba(68,116,224,.06);
+      opacity: .42;
+      transition: transform 680ms cubic-bezier(.16, 1.35, .34, 1) var(--lag, 0ms);
+      will-change: transform;
+    }
+
+    .linkage::before,
+    .linkage::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      margin-top: -5px;
+      border-radius: 50%;
+      border: 1px solid rgba(177,205,255,.25);
+      background: rgba(15,23,43,.92);
+      box-shadow: 0 0 8px rgba(75,126,230,.08);
+    }
+
+    .linkage::before { left: 0; }
+    .linkage::after { right: 0; }
+
+    .linkage.l1 { --lx: -10%; --ly: -18%; --link-width: 29%; --lag: 80ms; }
+    .linkage.l2 { --lx: -24%; --ly: 12%;  --link-width: 34%; --lag: 180ms; }
+    .linkage.l3 { --lx: 3%;   --ly: 16%;  --link-width: 25%; --lag: 280ms; }
+
+    .drive-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 10%;
+      height: 10%;
+      transform: translate(-50%, -50%) rotate(var(--core-rot, 0deg));
+      border-radius: 50%;
+      border: 1px solid rgba(186, 211, 255, .18);
+      background:
+        repeating-conic-gradient(from 0deg, rgba(159,193,255,.16) 0deg 8deg, transparent 8deg 30deg),
+        radial-gradient(circle, rgba(134,170,245,.16) 0 9%, transparent 10% 48%, rgba(90,125,203,.10) 49% 55%, transparent 56%);
+      box-shadow: inset 0 0 16px rgba(255,255,255,.04), 0 0 18px rgba(79,125,226,.08);
+      opacity: .66;
+      transition: transform 620ms cubic-bezier(.16, 1.35, .34, 1) 20ms;
+      will-change: transform;
+    }
+
+    .impact-ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 13%;
+      height: 13%;
+      transform: translate(-50%, -50%) scale(.72);
+      border-radius: 50%;
+      border: 1px solid rgba(107, 163, 255, .24);
+      opacity: 0;
+    }
+
+    .selector-assembly {
+      position: absolute;
+      left: 50%;
+      top: 1.4%;
+      z-index: 24;
+      width: 62px;
+      height: 98px;
+      transform: translateX(-50%) translateY(-18px);
+      opacity: 0;
+      transition: opacity 700ms ease 1000ms, transform 1150ms var(--intro-ease) 1000ms;
+      pointer-events: none;
+    }
+
+    .clock.is-ready .selector-assembly {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .selector-beam {
+      position: absolute;
+      left: 50%;
+      top: 43px;
+      width: 2px;
+      height: 55px;
+      transform: translateX(-50%);
+      background: linear-gradient(to bottom, rgba(111,175,255,.75), rgba(75,220,255,.32), transparent);
+      box-shadow: 0 0 12px rgba(75,220,255,.26);
+    }
+
+    .selector-disc {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 56px;
+      height: 56px;
+      transform: translateX(-50%) scale(1);
+      border-radius: 50%;
+      border: 1px solid rgba(196, 219, 255, .22);
+      background:
+        radial-gradient(circle at 34% 28%, rgba(255,255,255,.18), transparent 31%),
+        radial-gradient(circle, rgba(30,44,76,.96) 0 48%, rgba(15,22,43,.98) 49% 100%);
+      box-shadow:
+        inset 0 0 14px rgba(255,255,255,.06),
+        0 0 20px rgba(75,163,255,.18),
+        0 8px 22px rgba(0,0,0,.28);
+    }
+
+    .selector-disc::before {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      background: repeating-conic-gradient(
+        from 0deg,
+        rgba(184, 210, 255, .42) 0deg 4deg,
+        transparent 4deg 12deg
+      );
+      -webkit-mask: radial-gradient(circle, transparent 0 71%, #000 72% 100%);
+      mask: radial-gradient(circle, transparent 0 71%, #000 72% 100%);
+      transform: rotate(var(--selector-rot, 0deg));
+      transition: transform 720ms cubic-bezier(.16, 1.28, .34, 1);
+      filter: drop-shadow(0 0 6px rgba(88,147,255,.13));
+    }
+
+    .selector-disc::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 15px;
+      height: 15px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 0%, #afe8ff 42%, #7888ff 100%);
+      box-shadow: 0 0 12px rgba(255,255,255,.42), 0 0 24px rgba(75,220,255,.30);
+    }
+
+    .selector-notch {
+      position: absolute;
+      left: 50%;
+      top: 49px;
+      width: 0;
+      height: 0;
+      transform: translateX(-50%);
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 12px solid rgba(171, 218, 255, .92);
+      filter: drop-shadow(0 0 5px rgba(75, 220, 255, .35));
+    }
+
+    .clock.mechanical-impact .selector-disc {
+      animation: selectorKick 620ms cubic-bezier(.16, 1.2, .34, 1);
+    }
+
+    .clock.mechanical-impact .impact-ring {
+      animation: impactWave 780ms ease-out;
+    }
+
+    .clock.mechanical-impact .ring::before {
+      animation: ringFlash 720ms ease-out var(--impact-delay, 0ms);
+    }
+
+    .secondBox { --impact-delay: 0ms; }
+    .minuteBox { --impact-delay: 55ms; }
+    .hourBox   { --impact-delay: 110ms; }
+    .dayBox    { --impact-delay: 165ms; }
+    .monthBox  { --impact-delay: 220ms; }
+    .yearBox   { --impact-delay: 275ms; }
+
+    /* ring-names disabled
+    .ring-names {
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 800ms ease 1150ms;
+    }
+
+    .clock.is-ready .ring-names {
+      opacity: 1;
+    }
+
+    .ring-name {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) translateX(var(--x));
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      color: rgba(223,235,255,.42);
+      text-shadow: 0 0 10px rgba(100,140,255,.08);
+    }
+
+    .ring-name::before {
+      content: "";
+      position: absolute;
+      right: calc(100% + 8px);
+      top: 50%;
+      width: 14px;
+      height: 1px;
+      background: rgba(159,191,255,.20);
+    }
+
+    .ring-name.second { --x: -46.5%; }
+    .ring-name.minute { --x: -40%; }
+    .ring-name.hour   { --x: -33.5%; }
+    .ring-name.day    { --x: -27%; }
+    .ring-name.month  { --x: -20.5%; }
+    .ring-name.year   { --x: -14%; }
+    */
+
+    .idle-wave {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 20%;
+      height: 20%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 1px solid rgba(132,169,255,.14);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .clock.is-ready .idle-wave {
+      animation: idleWave 7s ease-out 3s infinite;
+    }
+
+    .idle-wave.wave-2 {
+      animation-delay: 5.2s !important;
+    }
+
+    .scan {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -20%;
+      height: 16%;
+      z-index: 8;
+      pointer-events: none;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,.026), transparent);
+      opacity: .42;
+      animation: scan 10s linear infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { transform: scale(.72); opacity: .18; }
+      50% { transform: scale(1.18); opacity: .92; }
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0,0,0) scale(.96); }
+      50% { transform: translate3d(3%, -3%, 0) scale(1.06); }
+    }
+
+    @keyframes idleFloat {
+      0%, 100% { translate: 0 0; }
+      50% { translate: 0 -8px; }
+    }
+
+    @keyframes haloLoop {
+      from { rotate: 0deg; scale: 1; }
+      50% { scale: 1.04; }
+      to { rotate: 360deg; scale: 1; }
+    }
+
+    @keyframes orbitArc {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes ringBreath {
+      0%, 100% { box-shadow: inset 0 0 26px rgba(255,255,255,.022), 0 0 28px rgba(90,120,255,.05); }
+      50% { box-shadow: inset 0 0 30px rgba(255,255,255,.035), 0 0 38px rgba(90,120,255,.08); }
+    }
+
+    @keyframes plateIdle {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes selectorKick {
+      0% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+      26% { transform: translateX(-50%) scale(.93); filter: brightness(1.25); }
+      62% { transform: translateX(-50%) scale(1.08); filter: brightness(1.10); }
+      100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+    }
+
+    @keyframes impactWave {
+      0% { transform: translate(-50%, -50%) scale(.72); opacity: .38; }
+      70% { opacity: .08; }
+      100% { transform: translate(-50%, -50%) scale(4.9); opacity: 0; }
+    }
+
+    @keyframes ringFlash {
+      0% { border-color: rgba(255,255,255,.04); box-shadow: none; }
+      24% { border-color: rgba(178,214,255,.24); box-shadow: 0 0 14px rgba(89,145,255,.10); }
+      100% { border-color: rgba(255,255,255,.04); box-shadow: none; }
+    }
+
+    @keyframes plateKick {
+      0% { filter: brightness(1); }
+      30% { filter: brightness(1.22); }
+      100% { filter: brightness(1); }
+    }
+
+    @keyframes markerPulse {
+      0%, 100% { filter: brightness(.96); }
+      50% { filter: brightness(1.22); }
+    }
+
+    @keyframes idleWave {
+      0% { transform: translate(-50%, -50%) scale(.72); opacity: 0; }
+      12% { opacity: .34; }
+      78% { opacity: .05; }
+      100% { transform: translate(-50%, -50%) scale(4.75); opacity: 0; }
+    }
+
+    @keyframes scan {
+      from { transform: translateY(0); }
+      to { transform: translateY(760%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        transition-delay: 0ms !important;
+      }
+    }
+
+
+
+    /* Pointer clearance: keep the mechanical selector outside the second ring. */
     .secondBox {
-      height: 85vh;
-      width: 85vh;
-      display: flex;
-      align-items: center;
-      position: absolute;
-      border-radius: 50%;
-      transition: 1s;
+      z-index: 30;
+    }
+
+    .selector-assembly {
+      top: 0;
+      z-index: 20;
+      width: 48px;
+      height: 86px;
+      transform: translateX(-50%) translateY(-58px);
+    }
+
+    .clock.is-ready .selector-assembly {
+      transform: translateX(-50%) translateY(-35px);
+    }
+
+    .selector-disc {
+      width: 42px;
+      height: 42px;
+      background:
+        radial-gradient(circle at 34% 28%, rgba(255,255,255,.13), transparent 30%),
+        radial-gradient(circle, rgba(24,36,65,.82) 0 35%, rgba(12,19,37,.90) 36% 58%, transparent 59% 100%);
+      box-shadow:
+        inset 0 0 10px rgba(255,255,255,.05),
+        0 0 16px rgba(75,163,255,.15),
+        0 6px 18px rgba(0,0,0,.22);
+    }
+
+    .selector-disc::before {
+      inset: -5px;
+    }
+
+    .selector-disc::after {
+      width: 10px;
+      height: 10px;
+    }
+
+    .selector-notch {
+      top: 36px;
+      border-left-width: 6px;
+      border-right-width: 6px;
+      border-top-width: 10px;
+    }
+
+    .selector-beam {
+      top: 44px;
+      width: 1px;
+      height: 30px;
+      background: linear-gradient(to bottom, rgba(111,175,255,.68), rgba(75,220,255,.24), transparent);
+      box-shadow: 0 0 8px rgba(75,220,255,.20);
+    }
+
+    @media (max-width: 720px) {
+      .selector-assembly { transform: translateX(-50%) translateY(-52px); }
+      .clock.is-ready .selector-assembly { transform: translateX(-50%) translateY(-31px); }
+      .brand { left: 16px; top: 16px; }
+      .brand-title { letter-spacing: .22em; }
+      .ring-name { font-size: 9px; }
     }
   </style>
 </head>
-
 <body>
-  <div class="secondBox"></div>
-  <div class="minuteBox"></div>
-  <div class="hourBox"></div>
-  <div class="dayBox"></div>
-  <div class="mounthBox"></div>
-  <div class="yearBox"></div>
-</body>
-<script>
-  let sencond = ``; for (i = 0; i < 60; i++) { let onediv = `<div id = "sencond${i + 1}" style="font-size: 16px;width: 100%;text-align: right;position: absolute;display: inline-block;transform: rotate(${(i - 1) * -6}deg);"> ${i + 1} 秒</div>`; sencond = sencond + onediv; } document.querySelector(".secondBox").innerHTML = sencond; let minute = ``; for (i = 0; i < 60; i++) { let onediv = `<div id = "minute${i + 1}"  style="font-size: 16px;width: 100%;text-align: right;position: absolute;display: inline-block;transform: rotate(${i * -6}deg);"> ${i + 1} 分</div>`; minute = minute + onediv; } document.querySelector(".minuteBox").innerHTML = minute; let hour = ``; for (i = 0; i < 24; i++) { let onediv = `<div id = "hour${i + 1}" style="font-size: 16px;width: 100%;text-align: right;position: absolute;display: inline-block;transform: rotate(${i * -15}deg);"> ${i + 1} 时</div>`; hour = hour + onediv; } document.querySelector(".hourBox").innerHTML = hour; let day = ``; for (i = 0; i < 31; i++) { let onediv = `<div id = "day${i + 1}" style="font-size: 16px;width: 100%;text-align: right;position: absolute;display: inline-block;transform: rotate(${i * -11.25}deg);"> ${i + 1} 日</div>`; day = day + onediv; } document.querySelector(".dayBox").innerHTML = day; let mounth = ``; for (i = 0; i < 12; i++) { let onediv = `<div id = "mounth${i + 1}" style="font-size: 16px;width: 100%;text-align: right;position: absolute;display: inline-block;transform: rotate(${i * -30}deg);"> ${i + 1} 月</div>`; mounth = mounth + onediv; } document.querySelector(".mounthBox").innerHTML = mounth; var sencond360 = 0; var Minute360 = 0; var hour360 = 0; var day360 = 0; var mounth360 = 0; var oldsencond = 0; var oldMinute = 0; var oldhour = 0; var oldday = 0; var oldmounth = 0; function transformBox() { let nowDate = new Date(); let sencond = nowDate.getSeconds(); let minute = nowDate.getMinutes(); let hour = nowDate.getHours(); let day = nowDate.getDate(); let mounth = nowDate.getMonth(); let year = nowDate.getFullYear(); if (sencond === 0 && oldsencond !== sencond) { sencond360 = sencond360 + 1; } if (minute === 0 && oldMinute !== minute) { Minute360 = Minute360 + 1; } if (hour === 0 && oldhour !== hour) { hour360 = hour360 + 1; } if (day === 1 && oldday !== day) { day360 = day360 + 1; } if (mounth === 0 && oldmounth !== mounth) { mounth360 = mounth360 + 1; } document.querySelector(".secondBox").style.transform = `rotate(${sencond360 * 360 + (sencond - 1) * 6}deg)`; document.querySelector(".minuteBox").style.transform = `rotate(${Minute360 * 360 + (minute - 1) * 6}deg)`; document.querySelector(".hourBox").style.transform = `rotate(${hour360 * 360 + (hour - 1) * 15}deg)`; document.querySelector(".dayBox").style.transform = `rotate(${day360 * 360 + (day - 1) * 11.25}deg)`; document.querySelector(".mounthBox").style.transform = `rotate(${mounth360 * 360 + mounth * 30}deg)`; document.querySelector(".yearBox").innerHTML = year + " 年"; let nowDates = document.querySelectorAll(".NowData"); nowDates.forEach((element) => { element.classList = ""; }); document.querySelector(`#sencond${sencond + 1}`).classList = "NowData"; document.querySelector(`#minute${minute === 0 ? "60" : minute}`).classList = "NowData"; document.querySelector(`#hour${hour === 0 ? "24" : hour}`).classList = "NowData"; document.querySelector(`#day${day}`).classList = "NowData"; document.querySelector(`#mounth${mounth + 1}`).classList = "NowData"; oldsencond = sencond; oldMinute = minute; oldhour = hour; oldday = day; oldmounth = mounth; } transformBox(); setInterval(() => { transformBox(); }, 1000); 
-</script>
+  <div class="ambient"></div>
+  <div class="stars" id="stars"></div>
+  <main class="stage">
+    <section class="clock" id="clock">
+      <div class="halo"></div>
+      <div class="mechanism" aria-hidden="true">
+        <div class="mechanical-plate"></div>
+        <div class="gear g1"></div>
+        <div class="gear g2"></div>
+        <div class="gear g3"></div>
+        <div class="gear g4"></div>
+        <div class="gear g5"></div>
+        <div class="gear g6"></div>
+        <div class="gear g7"></div>
+        <div class="gear g8"></div>
+        <div class="gear g9"></div>
+        <div class="linkage l1"></div>
+        <div class="linkage l2"></div>
+        <div class="linkage l3"></div>
+        <div class="drive-core"></div>
+        <div class="impact-ring"></div>
+      </div>
 
+      <div class="selector-assembly" aria-hidden="true">
+        <div class="selector-disc"></div>
+        <div class="selector-notch"></div>
+        <div class="selector-beam"></div>
+      </div>
+
+      <div class="ring secondBox"></div>
+      <div class="ring minuteBox"></div>
+      <div class="ring hourBox"></div>
+      <div class="ring dayBox"></div>
+      <div class="ring monthBox"></div>
+      <div class="ring yearBox"></div>
+
+      <!-- ring-names disabled
+      <div class="ring-names" aria-hidden="true">
+        <span class="ring-name second">秒</span>
+        <span class="ring-name minute">分</span>
+        <span class="ring-name hour">时</span>
+        <span class="ring-name day">日</span>
+        <span class="ring-name month">月</span>
+        <span class="ring-name year">年</span>
+      </div>
+      -->
+
+      <div class="center-core"></div>
+      <div class="idle-wave wave-1"></div>
+      <div class="idle-wave wave-2"></div>
+    </section>
+  </main>
+
+  <div class="scan"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const clock = document.getElementById('clock');
+      const stars = document.getElementById('stars');
+      const secondBox = document.querySelector('.secondBox');
+      const minuteBox = document.querySelector('.minuteBox');
+      const hourBox = document.querySelector('.hourBox');
+      const dayBox = document.querySelector('.dayBox');
+      const monthBox = document.querySelector('.monthBox');
+      const yearBox = document.querySelector('.yearBox');
+      const gears = Array.from(document.querySelectorAll('.gear'));
+      const linkages = Array.from(document.querySelectorAll('.linkage'));
+      const driveCore = document.querySelector('.drive-core');
+      const selectorDisc = document.querySelector('.selector-disc');
+      const mechanicalPlate = document.querySelector('.mechanical-plate');
+
+      const revolutions = { second: 0, minute: 0, hour: 0, day: 0, month: 0, year: 0 };
+      const previous = { second: -1, minute: -1, hour: -1, day: -1, month: -1, year: -1 };
+      const activeItems = [];
+      let resizeTimer = 0;
+      let mechanicalStep = 0;
+      let impactTimer = 0;
+      let yearRangeStart = 0;
+      let yearCurrentIndex = 3;
+      const yearCount = 8;
+
+      function pad(value) {
+        return String(value).padStart(2, '0');
+      }
+
+      function daysInMonth(year, monthIndex) {
+        return new Date(year, monthIndex + 1, 0).getDate();
+      }
+
+      function buildRing(box, count, unit, step, valueFormatter, offset = -90) {
+        const fragment = document.createDocumentFragment();
+        for (let i = 0; i < count; i += 1) {
+          const angle = offset - i * step;
+          const item = document.createElement('div');
+          item.className = 'time-item';
+          item.id = `${unit}${i}`;
+          item.style.setProperty('--angle', `${angle}deg`);
+          const labelDelay = 1420 + Math.min(i, 30) * 18;
+          item.innerHTML = `<span class="time-label" style="--counter:${-angle}deg;--label-delay:${labelDelay}ms">${valueFormatter(i)}</span>`;
+          fragment.appendChild(item);
+        }
+        box.replaceChildren(fragment);
+      }
+
+      function buildYearRing(currentYear) {
+        yearRangeStart = currentYear - yearCurrentIndex;
+        const step = 360 / yearCount;
+        buildRing(yearBox, yearCount, 'year', step, index => String(yearRangeStart + index));
+      }
+
+      function buildStars() {
+        const count = Math.max(58, Math.min(122, Math.round((window.innerWidth * window.innerHeight) / 15800)));
+        const fragment = document.createDocumentFragment();
+        for (let i = 0; i < count; i += 1) {
+          const star = document.createElement('span');
+          const size = Math.random() * 2 + .5;
+          star.className = 'star';
+          star.style.width = `${size}px`;
+          star.style.height = `${size}px`;
+          star.style.left = `${Math.random() * 100}%`;
+          star.style.top = `${Math.random() * 100}%`;
+          star.style.setProperty('--d', `${2.2 + Math.random() * 4.2}s`);
+          star.style.animationDelay = `${Math.random() * 5}s`;
+          fragment.appendChild(star);
+        }
+        stars.replaceChildren(fragment);
+      }
+
+      function clearActive() {
+        while (activeItems.length) activeItems.pop().classList.remove('NowData');
+      }
+
+      function setActive(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.add('NowData');
+          activeItems.push(el);
+        }
+      }
+
+      function updateDayValidity(year, month) {
+        const max = daysInMonth(year, month);
+        document.querySelectorAll('.dayBox .time-item').forEach((item, index) => {
+          item.classList.toggle('invalid-day', index + 1 > max);
+        });
+      }
+
+      function applyRotation(box, angle) {
+        box.style.setProperty('--rot', `${angle}deg`);
+        box.style.setProperty('--ring-counter', `${-angle}deg`);
+      }
+
+      function updateMechanism(animateImpact = true) {
+        mechanicalStep += 1;
+
+        const gearRatios = [16, -23, 31, -37, 44, -52, 61, -69, 78];
+        gears.forEach((gear, index) => {
+          gear.style.setProperty('--gear-rot', `${mechanicalStep * gearRatios[index]}deg`);
+        });
+
+        const linkageAngles = [
+          -18 + Math.sin(mechanicalStep * 0.72) * 15,
+          164 + Math.cos(mechanicalStep * 0.66) * 13,
+          202 + Math.sin(mechanicalStep * 0.58 + 1.2) * 17
+        ];
+        linkages.forEach((linkage, index) => {
+          linkage.style.setProperty('--link-rot', `${linkageAngles[index]}deg`);
+        });
+
+        driveCore.style.setProperty('--core-rot', `${mechanicalStep * 42}deg`);
+        selectorDisc.style.setProperty('--selector-rot', `${mechanicalStep * 30}deg`);
+
+        if (!animateImpact) return;
+
+        clearTimeout(impactTimer);
+        clock.classList.remove('mechanical-impact');
+        void clock.offsetWidth;
+        clock.classList.add('mechanical-impact');
+        mechanicalPlate.style.animation = 'none';
+        void mechanicalPlate.offsetWidth;
+        mechanicalPlate.style.animation = 'plateIdle 34s linear infinite, plateKick 720ms ease-out';
+        impactTimer = window.setTimeout(() => {
+          clock.classList.remove('mechanical-impact');
+          mechanicalPlate.style.animation = 'plateIdle 34s linear infinite';
+        }, 820);
+      }
+
+      function updateTime() {
+        const now = new Date();
+        const second = now.getSeconds();
+        const minute = now.getMinutes();
+        const hour = now.getHours();
+        const day = now.getDate();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+
+        if (second === 0 && previous.second > 0) revolutions.second += 1;
+        if (minute === 0 && previous.minute > 0) revolutions.minute += 1;
+        if (hour === 0 && previous.hour > 0) revolutions.hour += 1;
+        if (day === 1 && previous.day > 1) revolutions.day += 1;
+        if (month === 0 && previous.month > 0) revolutions.month += 1;
+
+        if (previous.year !== -1 && year !== previous.year) {
+          buildYearRing(year);
+        }
+
+        const secondRotation = revolutions.second * 360 + second * 6;
+        const minuteRotation = revolutions.minute * 360 + minute * 6;
+        const hourRotation = revolutions.hour * 360 + hour * 15;
+        const dayRotation = revolutions.day * 360 + (day - 1) * (360 / 31);
+        const monthRotation = revolutions.month * 360 + month * 30;
+        const yearRotation = yearCurrentIndex * (360 / yearCount);
+
+        applyRotation(secondBox, secondRotation);
+        applyRotation(minuteBox, minuteRotation);
+        applyRotation(hourBox, hourRotation);
+        applyRotation(dayBox, dayRotation);
+        applyRotation(monthBox, monthRotation);
+        applyRotation(yearBox, yearRotation);
+
+        clearActive();
+        setActive(`second${second}`);
+        setActive(`minute${minute}`);
+        setActive(`hour${hour}`);
+        setActive(`day${day - 1}`);
+        setActive(`month${month}`);
+        setActive(`year${yearCurrentIndex}`);
+
+        updateDayValidity(year, month);
+
+        const secondChanged = previous.second !== -1 && second !== previous.second;
+        if (previous.second === -1) {
+          mechanicalStep = second;
+          updateMechanism(false);
+        } else if (secondChanged) {
+          updateMechanism(true);
+        }
+
+        previous.second = second;
+        previous.minute = minute;
+        previous.hour = hour;
+        previous.day = day;
+        previous.month = month;
+        previous.year = year;
+      }
+
+      function beginIntro() {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            clock.classList.add('is-ready');
+            setTimeout(() => clock.classList.add('intro-complete'), 2700);
+          });
+        });
+      }
+
+      function rebuildStarsSoon() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(buildStars, 160);
+      }
+
+      const now = new Date();
+      buildRing(secondBox, 60, 'second', 6, index => pad(index));
+      buildRing(minuteBox, 60, 'minute', 6, index => pad(index));
+      buildRing(hourBox, 24, 'hour', 15, index => pad(index));
+      buildRing(dayBox, 31, 'day', 360 / 31, index => pad(index + 1));
+      buildRing(monthBox, 12, 'month', 30, index => pad(index + 1));
+      buildYearRing(now.getFullYear());
+
+      buildStars();
+      updateTime();
+      beginIntro();
+
+      setInterval(updateTime, 1000);
+      window.addEventListener('resize', rebuildStarsSoon, { passive: true });
+    })();
+  </script>
+</body>
 </html>

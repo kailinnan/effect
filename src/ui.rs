@@ -63,14 +63,14 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         .build(&mut window)?;
 
     nwg::Label::builder()
-        .text("Effect 动态壁纸")
+        .text("把HTML文件 变成动态壁纸")
         .position((34, 28))
         .size((360, 42))
         .font(Some(&title_font))
         .parent(&window)
         .build(&mut title)?;
     nwg::Label::builder()
-        .text("选择本地 HTML 特效，并将它安静地放到桌面图标后面。")
+        .text("选择本地 HTML 文件，点击应用。")
         .position((36, 72))
         .size((580, 26))
         .parent(&window)
