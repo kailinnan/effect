@@ -20,9 +20,7 @@ struct AppState {
 
 pub fn run() -> Result<(), Box<dyn Error>> {
     nwg::init()?;
-    eprintln!("effect: nwg initialized");
     nwg::Font::set_global_family("Microsoft YaHei UI")?;
-    eprintln!("effect: font initialized");
 
     let config = config::load();
     let initial_path = config
@@ -62,7 +60,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         .center(true)
         .title("Effect 动态壁纸")
         .build(&mut window)?;
-    eprintln!("effect: window built");
 
     nwg::Label::builder()
         .text("Effect 动态壁纸")
@@ -208,7 +205,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
             }
         });
 
-    eprintln!("effect: dispatching events");
     nwg::dispatch_thread_events();
     nwg::unbind_event_handler(&handler);
     Ok(())

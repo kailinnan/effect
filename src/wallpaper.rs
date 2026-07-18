@@ -5,7 +5,6 @@ use std::{
     ptr::null_mut,
     sync::mpsc,
     thread::{self, JoinHandle},
-    time::Duration,
 };
 
 use tao::{
@@ -41,7 +40,7 @@ impl WallpaperRuntime {
             }
         });
 
-        match receiver.recv_timeout(Duration::from_secs(10)) {
+        match receiver.recv() {
             Ok(Ok(proxy)) => Ok(Self {
                 proxy,
                 thread: Some(thread),
@@ -50,7 +49,7 @@ impl WallpaperRuntime {
                 let _ = thread.join();
                 Err(error.into())
             }
-            Err(error) => Err(format!("启动动态壁纸超时：{error}").into()),
+            Err(error) => Err(format!("动态壁纸线程意外结束：{error}").into()),
         }
     }
 

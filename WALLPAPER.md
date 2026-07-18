@@ -1,44 +1,45 @@
-# Clouds Dynamic Wallpaper
+# Effect Dynamic Wallpaper
 
-This repository uses `static/clouds/index.html` as the dynamic wallpaper source.
-`cargo run` creates a borderless WebView window, loads the clouds page, makes the window a WorkerW child, and places it behind the desktop icon layer.
+Effect 是一个 Windows 原生动态壁纸管理器。它可以选择本地 HTML 文件，或选择包含
+`index.html` 的目录，然后通过 WebView2 将页面挂载到桌面图标层后方。
 
-## Apply the Wallpaper
+## 使用
 
-Start from the repository root:
-
-```powershell
-cargo run -- start
-```
-
-Stop and refresh the desktop:
+从仓库根目录启动：
 
 ```powershell
-cargo run -- stop
+cargo run
 ```
 
-The stop command terminates the wallpaper host, advances the Windows wallpaper slideshow, and sends desktop refresh messages to Explorer.
+管理窗口提供三个操作：
 
-Check status:
+- `选择 HTML` 或 `选择目录`：选择壁纸入口。
+- `应用`：记录当前 Windows 静态壁纸并启动 HTML 动态壁纸。
+- `停止并恢复`：关闭动态壁纸并恢复应用前的静态壁纸。
 
-```powershell
-cargo run -- status
-```
+关闭管理窗口也会执行停止和恢复操作。
 
-## Preview Without Lively
-
-```powershell
-python -m http.server 8000
-```
-
-Open:
+上次选择的路径与静态壁纸备份保存在：
 
 ```text
-http://localhost:8000/static/clouds/
+%APPDATA%\effect\config.json
+%APPDATA%\effect\wallpaper-backup.json
 ```
 
-## Notes
+静态示例仍存放在 `static/<demo-name>/`。例如可选择 `static/clouds` 目录。
 
-- `static/clouds/index.html` remains the source of the visual effect.
-- `static/clouds/css/style.css` hides the dat.GUI debug panel for wallpaper use.
-- `scripts/package-lively.ps1` is still available if you also want a manual Lively import zip.
+## 开发检查
+
+```powershell
+cargo fmt -- --check
+cargo clippy -- -D warnings
+cargo test
+```
+
+## Lively Wallpaper 打包
+
+独立的 Lively Wallpaper 包仍可通过脚本生成：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\package-lively.ps1 -Project clouds
+```

@@ -97,9 +97,11 @@ fn with_desktop_wallpaper<T>(
             return Err(WindowsError::from_hresult(coinit));
         }
 
-        let desktop =
-            CoCreateInstance::<_, IDesktopWallpaper>(&DesktopWallpaper, None, CLSCTX_ALL)?;
-        let result = operation(&desktop);
+        let result = (|| {
+            let desktop =
+                CoCreateInstance::<_, IDesktopWallpaper>(&DesktopWallpaper, None, CLSCTX_ALL)?;
+            operation(&desktop)
+        })();
 
         if initialized {
             CoUninitialize();
