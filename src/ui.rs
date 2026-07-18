@@ -35,12 +35,10 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let mut path_label = nwg::Label::default();
     let mut path_input = nwg::TextInput::default();
     let mut choose_file = nwg::Button::default();
-    let mut choose_folder = nwg::Button::default();
     let mut apply = nwg::Button::default();
     let mut stop = nwg::Button::default();
     let mut status = nwg::Label::default();
     let mut file_dialog = nwg::FileDialog::default();
-    let mut folder_dialog = nwg::FileDialog::default();
     let mut title_font = nwg::Font::default();
     let mut status_font = nwg::Font::default();
 
@@ -88,17 +86,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         .parent(&window)
         .build(&mut path_input)?;
     nwg::Button::builder()
-        .text("选择 HTML")
+        .text("选择 HTML 文件")
         .position((36, 198))
-        .size((126, 38))
+        .size((160, 38))
         .parent(&window)
         .build(&mut choose_file)?;
-    nwg::Button::builder()
-        .text("选择目录")
-        .position((174, 198))
-        .size((126, 38))
-        .parent(&window)
-        .build(&mut choose_folder)?;
     nwg::Button::builder()
         .text("应用")
         .position((382, 198))
@@ -130,10 +122,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         .action(nwg::FileDialogAction::Open)
         .filters("HTML 文件 (*.html;*.htm)|所有文件 (*.*)")
         .build(&mut file_dialog)?;
-    nwg::FileDialog::builder()
-        .title("选择包含 index.html 的目录")
-        .action(nwg::FileDialogAction::OpenDirectory)
-        .build(&mut folder_dialog)?;
 
     let state = Rc::new(RefCell::new(AppState {
         config,
@@ -149,18 +137,6 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 nwg::Event::OnButtonClick if handle == choose_file.handle => {
                     if file_dialog.run(Some(&*handler_window))
                         && let Ok(selected) = file_dialog.get_selected_item()
-                    {
-                        update_selection(
-                            PathBuf::from(selected),
-                            &path_input,
-                            &status,
-                            &handler_state,
-                        );
-                    }
-                }
-                nwg::Event::OnButtonClick if handle == choose_folder.handle => {
-                    if folder_dialog.run(Some(&*handler_window))
-                        && let Ok(selected) = folder_dialog.get_selected_item()
                     {
                         update_selection(
                             PathBuf::from(selected),
@@ -234,7 +210,9 @@ fn apply_wallpaper(
         .config
         .selected_path
         .clone()
-        .ok_or("请先选择 HTML 文件或目录")?;
+        .ok_or("请先选择 HTML 文件")?;
+
+    WallpaperRuntime::validate_selection(&selection)?;
 
     let previous = state.borrow_mut().runtime.take();
     if let Some(runtime) = previous {

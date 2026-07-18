@@ -11,6 +11,7 @@ use tao::{
     dpi::{LogicalPosition, LogicalSize},
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy},
+    platform::run_return::EventLoopExtRunReturn,
     platform::windows::{EventLoopBuilderExtWindows, WindowExtWindows},
     window::WindowBuilder,
 };
@@ -29,6 +30,10 @@ pub struct WallpaperRuntime {
 }
 
 impl WallpaperRuntime {
+    pub fn validate_selection(selection: &Path) -> Result<(), Box<dyn Error>> {
+        AssetSource::from_selection(selection).map(|_| ())
+    }
+
     pub fn start(selection: &Path) -> Result<Self, Box<dyn Error>> {
         let source = AssetSource::from_selection(selection)?;
         let (sender, receiver) = mpsc::sync_channel(1);
@@ -105,7 +110,7 @@ fn run_wallpaper(
 ) -> Result<(), Box<dyn Error>> {
     let mut builder = EventLoopBuilder::<WallpaperEvent>::with_user_event();
     builder.with_any_thread(true);
-    let event_loop = builder.build();
+    let mut event_loop = builder.build();
     let bounds = screen_bounds(&event_loop);
 
     let window = WindowBuilder::new()
@@ -145,7 +150,7 @@ fn run_wallpaper(
     let proxy = event_loop.create_proxy();
     ready.send(Ok(proxy)).map_err(|_| "管理窗口已关闭")?;
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run_return(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         match event {
             Event::UserEvent(WallpaperEvent::Stop) => {
@@ -166,6 +171,8 @@ fn run_wallpaper(
             _ => {}
         }
     });
+
+    Ok(())
 }
 
 fn asset_response(
