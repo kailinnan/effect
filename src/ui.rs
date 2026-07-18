@@ -148,7 +148,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
                 }
                 nwg::Event::OnButtonClick if handle == apply.handle => {
                     if let Err(error) = apply_wallpaper(&handler_state, &status) {
-                        status.set_text("● 应用失败");
+                        status.set_text(&format!("● 应用失败：{error}"));
                         nwg::modal_error_message(
                             &handler_window.handle,
                             "无法应用动态壁纸",
