@@ -8,7 +8,7 @@ use std::{
 };
 
 use tao::{
-    dpi::{LogicalPosition, LogicalSize},
+    dpi::{PhysicalPosition, PhysicalSize},
     event::Event,
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy},
     platform::run_return::EventLoopExtRunReturn,
@@ -16,7 +16,7 @@ use tao::{
     window::WindowBuilder,
 };
 use wry::{
-    Rect, WebViewBuilder,
+    Rect, WebContext, WebViewBuilder,
     http::{Request, Response, header::CONTENT_TYPE},
 };
 
@@ -118,12 +118,14 @@ fn run_wallpaper(
         .with_decorations(false)
         .with_resizable(false)
         .with_visible(false)
-        .with_inner_size(LogicalSize::new(bounds.width as f64, bounds.height as f64))
-        .with_position(LogicalPosition::new(bounds.x as f64, bounds.y as f64))
+        .with_inner_size(PhysicalSize::new(bounds.width as u32, bounds.height as u32))
+        .with_position(PhysicalPosition::new(bounds.x, bounds.y))
         .build(&event_loop)?;
 
     let asset_source = source.clone();
-    let webview = WebViewBuilder::new()
+    let data_directory = webview_data_directory()?;
+    let mut web_context = WebContext::new(Some(data_directory));
+    let webview = WebViewBuilder::new_with_web_context(&mut web_context)
         .with_custom_protocol(
             "effect".into(),
             move |_webview_id, request| match asset_response(request, &asset_source) {
@@ -137,15 +139,19 @@ fn run_wallpaper(
             },
         )
         .with_bounds(Rect {
-            position: LogicalPosition::new(0, 0).into(),
-            size: LogicalSize::new(bounds.width as u32, bounds.height as u32).into(),
+            position: PhysicalPosition::new(0, 0).into(),
+            size: PhysicalSize::new(bounds.width as u32, bounds.height as u32).into(),
         })
+        .with_initialization_script(FULL_SCREEN_DOCUMENT_SCRIPT)
         .with_url("effect://wallpaper/index.html")
         .build_as_child(&window)?;
 
     let _ = window.set_skip_taskbar(true);
-    windows_shell::attach_behind_desktop_icons(&window, bounds.width, bounds.height)?;
-    window.set_visible(true);
+    let parent_size = windows_shell::attach_behind_desktop_icons(&window)?;
+    webview.set_bounds(Rect {
+        position: PhysicalPosition::new(0, 0).into(),
+        size: parent_size.into(),
+    })?;
 
     let proxy = event_loop.create_proxy();
     ready.send(Ok(proxy)).map_err(|_| "管理窗口已关闭")?;
@@ -161,10 +167,9 @@ fn run_wallpaper(
                 event: tao::event::WindowEvent::Resized(size),
                 ..
             } => {
-                let size = size.to_logical::<u32>(window.scale_factor());
                 let _ = webview.set_bounds(Rect {
-                    position: LogicalPosition::new(0, 0).into(),
-                    size: LogicalSize::new(size.width, size.height).into(),
+                    position: PhysicalPosition::new(0, 0).into(),
+                    size: PhysicalSize::new(size.width, size.height).into(),
                 });
             }
             Event::LoopDestroyed => windows_shell::refresh_desktop(),
@@ -173,6 +178,34 @@ fn run_wallpaper(
     });
 
     Ok(())
+}
+
+const FULL_SCREEN_DOCUMENT_SCRIPT: &str = r#"
+window.addEventListener('DOMContentLoaded', () => {
+    const viewport = document.querySelector('meta[name="viewport"]') || document.createElement('meta');
+    viewport.name = 'viewport';
+    viewport.content = 'width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    if (!viewport.parentNode) document.head.appendChild(viewport);
+
+    for (const element of [document.documentElement, document.body]) {
+        element.style.setProperty('width', '100%', 'important');
+        element.style.setProperty('height', '100%', 'important');
+        element.style.setProperty('margin', '0', 'important');
+        element.style.setProperty('padding', '0', 'important');
+        element.style.setProperty('overflow', 'hidden', 'important');
+    }
+}, { once: true });
+"#;
+
+fn webview_data_directory() -> Result<PathBuf, Box<dyn Error>> {
+    let path = std::env::var_os("LOCALAPPDATA")
+        .or_else(|| std::env::var_os("APPDATA"))
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("effect")
+        .join("webview2-user-data");
+    std::fs::create_dir_all(&path)?;
+    Ok(path.canonicalize()?)
 }
 
 fn asset_response(
@@ -250,18 +283,19 @@ pub mod windows_shell {
     use super::*;
     use windows::{
         Win32::{
-            Foundation::{HWND, LPARAM, WPARAM},
+            Foundation::{HWND, LPARAM, RECT, WPARAM},
             UI::WindowsAndMessaging::{
                 EnumWindows, FindWindowExW, FindWindowW, GWL_EXSTYLE, GWL_STYLE, GetDesktopWindow,
-                GetWindowLongPtrW, HWND_BOTTOM, SMTO_NORMAL, SW_SHOWNA, SWP_FRAMECHANGED,
-                SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_SHOWWINDOW, SendMessageTimeoutW, SetParent,
-                SetWindowLongPtrW, SetWindowPos, ShowWindow, WM_SETTINGCHANGE, WS_BORDER,
-                WS_CAPTION, WS_CHILD, WS_DLGFRAME, WS_EX_APPWINDOW, WS_EX_NOACTIVATE,
-                WS_EX_TOOLWINDOW, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU,
-                WS_THICKFRAME,
+                GetWindowInfo, GetWindowLongPtrW, HWND_BOTTOM, SMTO_NORMAL, SW_SHOWNA,
+                SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_SHOWWINDOW,
+                SendMessageTimeoutW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+                WINDOWINFO, WM_SETTINGCHANGE, WS_BORDER, WS_CAPTION, WS_CHILD, WS_DLGFRAME,
+                WS_EX_APPWINDOW, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_NOACTIVATE,
+                WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX,
+                WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
             },
         },
-        core::{BOOL, Result as WindowsResult, w},
+        core::{BOOL, Error as WindowsError, HRESULT, Result as WindowsResult, w},
     };
 
     const WM_SPAWN_WORKERW: u32 = 0x052c;
@@ -296,29 +330,67 @@ pub mod windows_shell {
 
     pub fn attach_behind_desktop_icons(
         window: &tao::window::Window,
-        width: i32,
-        height: i32,
-    ) -> WindowsResult<()> {
+    ) -> WindowsResult<PhysicalSize<u32>> {
         let hwnd = HWND(window.hwnd() as *mut c_void);
         let parent = find_workerw_behind_icons()?;
         unsafe {
-            configure_child_wallpaper_window(hwnd);
-            let _ = SetParent(hwnd, Some(parent));
-            let _ = SetWindowPos(
+            SetParent(hwnd, Some(parent))?;
+            configure_child_wallpaper_window(hwnd)?;
+            let parent_info = window_info(parent)?;
+            let host_info = window_info(hwnd)?;
+            let size = rect_size(parent_info.rcClient)?;
+
+            // SetWindowPos sizes the outer window. Offset and enlarge it by any
+            // remaining non-client area so the host's client area, where the
+            // WebView lives, exactly matches the parent WorkerW client area.
+            let frame_left = host_info.rcClient.left - host_info.rcWindow.left;
+            let frame_top = host_info.rcClient.top - host_info.rcWindow.top;
+            let frame_right = host_info.rcWindow.right - host_info.rcClient.right;
+            let frame_bottom = host_info.rcWindow.bottom - host_info.rcClient.bottom;
+            SetWindowPos(
                 hwnd,
                 Some(HWND_BOTTOM),
-                0,
-                0,
-                width,
-                height,
+                -frame_left,
+                -frame_top,
+                size.width as i32 + frame_left + frame_right,
+                size.height as i32 + frame_top + frame_bottom,
                 SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
-            );
+            )?;
+
+            let fitted_host = window_info(hwnd)?;
+            if fitted_host.rcClient != parent_info.rcClient {
+                return Err(WindowsError::new(
+                    HRESULT(0x80004005u32 as i32),
+                    "壁纸客户区未能与桌面父窗口完全重合",
+                ));
+            }
             let _ = ShowWindow(hwnd, SW_SHOWNA);
+            Ok(size)
         }
-        Ok(())
     }
 
-    unsafe fn configure_child_wallpaper_window(hwnd: HWND) {
+    unsafe fn window_info(hwnd: HWND) -> WindowsResult<WINDOWINFO> {
+        let mut info = WINDOWINFO {
+            cbSize: std::mem::size_of::<WINDOWINFO>() as u32,
+            ..Default::default()
+        };
+        unsafe { GetWindowInfo(hwnd, &mut info)? };
+        Ok(info)
+    }
+
+    fn rect_size(rect: RECT) -> WindowsResult<PhysicalSize<u32>> {
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+        if width <= 0 || height <= 0 {
+            return Err(WindowsError::new(
+                HRESULT(0x80004005u32 as i32),
+                "桌面父窗口客户区尺寸无效",
+            ));
+        }
+        Ok(PhysicalSize::new(width as u32, height as u32))
+    }
+
+    unsafe fn configure_child_wallpaper_window(hwnd: HWND) -> WindowsResult<()> {
         let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 };
         let frame_bits = WS_POPUP.0
             | WS_CAPTION.0
@@ -336,15 +408,38 @@ pub mod windows_shell {
             )
         };
 
+        let applied_style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) as u32 };
+        if applied_style & frame_bits != 0 || applied_style & WS_CHILD.0 == 0 {
+            return Err(WindowsError::new(
+                HRESULT(0x80004005u32 as i32),
+                "无法将壁纸宿主窗口设置为无边框子窗口",
+            ));
+        }
+
         let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 };
+        let extended_frame_bits = WS_EX_APPWINDOW.0
+            | WS_EX_CLIENTEDGE.0
+            | WS_EX_DLGMODALFRAME.0
+            | WS_EX_STATICEDGE.0
+            | WS_EX_WINDOWEDGE.0;
         unsafe {
             SetWindowLongPtrW(
                 hwnd,
                 GWL_EXSTYLE,
-                ((ex_style & !WS_EX_APPWINDOW.0) | WS_EX_TOOLWINDOW.0 | WS_EX_NOACTIVATE.0)
+                ((ex_style & !extended_frame_bits) | WS_EX_TOOLWINDOW.0 | WS_EX_NOACTIVATE.0)
                     as isize,
             )
         };
+
+        let applied_ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 };
+        if applied_ex_style & extended_frame_bits != 0 {
+            return Err(WindowsError::new(
+                HRESULT(0x80004005u32 as i32),
+                "无法清除壁纸宿主窗口的扩展边框样式",
+            ));
+        }
+
+        Ok(())
     }
 
     fn find_workerw_behind_icons() -> WindowsResult<HWND> {

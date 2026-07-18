@@ -57,6 +57,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         .size((680, 360))
         .center(true)
         .title("Effect 动态壁纸")
+        .flags(
+            nwg::WindowFlags::WINDOW | nwg::WindowFlags::MINIMIZE_BOX | nwg::WindowFlags::VISIBLE,
+        )
         .build(&mut window)?;
 
     nwg::Label::builder()
