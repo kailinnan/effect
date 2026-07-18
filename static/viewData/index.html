@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>企业级大数据可视化驾驶舱</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg: #050b18;
+      --panel: rgba(8, 23, 48, 0.78);
+      --panel-deep: rgba(3, 14, 32, 0.92);
+      --line: rgba(43, 194, 255, 0.22);
+      --line-strong: rgba(43, 194, 255, 0.7);
+      --text: #d9f4ff;
+      --muted: #79a2b7;
+      --cyan: #28d7ff;
+      --blue: #2979ff;
+      --green: #39f4a4;
+      --yellow: #ffd166;
+      --red: #ff5b73;
+      --purple: #a675ff;
+      --shadow: 0 0 30px rgba(0, 195, 255, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(19, 92, 155, 0.18), transparent 34%),
+        linear-gradient(rgba(13, 47, 78, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(13, 47, 78, 0.14) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, 44px 44px, 44px 44px, auto;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(0, 190, 255, 0.04), transparent);
+      animation: scan 7s linear infinite;
+      z-index: 20;
+    }
+
+    @keyframes scan {
+      from { transform: translateY(-100%); }
+      to { transform: translateY(100%); }
+    }
+
+    .dashboard {
+      width: min(1920px, 100%);
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 14px;
+      display: grid;
+      grid-template-rows: 76px 112px minmax(690px, 1fr) 42px;
+      gap: 12px;
+    }
+
+    .header {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 2.3fr 1fr;
+      align-items: center;
+      padding: 0 18px;
+      background: linear-gradient(90deg, transparent, rgba(15, 65, 110, 0.35), transparent);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .header::before,
+    .header::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      width: 28%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+      box-shadow: 0 0 12px var(--cyan);
+    }
+
+    .header::before { left: 0; }
+    .header::after { right: 0; transform: scaleX(-1); }
+
+    .header-left,
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .header-right { justify-content: flex-end; }
+
+    .title {
+      text-align: center;
+      letter-spacing: 8px;
+      margin: 0;
+      font-size: clamp(22px, 2vw, 36px);
+      font-weight: 700;
+      color: #e8fbff;
+      text-shadow: 0 0 18px rgba(40, 215, 255, 0.55);
+    }
+
+    .subtitle {
+      display: block;
+      margin-top: 5px;
+      letter-spacing: 3px;
+      font-size: 10px;
+      color: #5eb6d6;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      50% { opacity: .35; transform: scale(.72); }
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric-card,
+    .panel {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(145deg, rgba(10, 32, 62, .92), rgba(4, 15, 33, .78));
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow), inset 0 0 22px rgba(0, 170, 255, .025);
+      clip-path: polygon(0 12px, 12px 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    }
+
+    .metric-card::before,
+    .panel::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 42px;
+      height: 2px;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+    }
+
+    .metric-card {
+      padding: 16px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      font-size: clamp(22px, 2vw, 34px);
+      line-height: 1;
+      font-family: Consolas, monospace;
+      color: #f2fdff;
+      text-shadow: 0 0 12px rgba(40, 215, 255, .26);
+    }
+
+    .metric-unit { font-size: 12px; color: var(--muted); margin-left: 4px; }
+    .metric-trend { font-size: 11px; color: var(--green); }
+    .metric-trend.down { color: var(--red); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(300px, .9fr) minmax(520px, 1.7fr) minmax(300px, .9fr);
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .column {
+      display: grid;
+      grid-template-rows: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .center-column {
+      display: grid;
+      grid-template-rows: minmax(430px, 1.6fr) minmax(260px, .85fr);
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .panel {
+      padding: 12px;
+      min-height: 0;
+    }
+
+    .panel-title {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(70, 180, 220, .12);
+      color: #bfefff;
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+
+    .panel-title::before {
+      content: "▰";
+      color: var(--cyan);
+      margin-right: 7px;
+      text-shadow: 0 0 8px var(--cyan);
+    }
+
+    .panel-title span:last-child {
+      margin-left: auto;
+      font-size: 10px;
+      color: #4f89a1;
+      font-family: Consolas, monospace;
+    }
+
+    .chart {
+      width: 100%;
+      height: calc(100% - 32px);
+      min-height: 150px;
+    }
+
+    .hero-panel {
+      position: relative;
+      padding: 0;
+      background:
+        radial-gradient(circle at center, rgba(16, 117, 183, .14), transparent 42%),
+        linear-gradient(145deg, rgba(5, 26, 52, .95), rgba(3, 13, 27, .88));
+    }
+
+    .hero-head {
+      position: absolute;
+      z-index: 3;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .hero-head h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 2px;
+      font-weight: 500;
+    }
+
+    .hero-status {
+      display: flex;
+      gap: 18px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .hero-status b { color: var(--cyan); font-family: Consolas, monospace; }
+
+    .radar-ring {
+      position: absolute;
+      width: min(54vw, 520px);
+      aspect-ratio: 1;
+      border: 1px solid rgba(40, 215, 255, .1);
+      border-radius: 50%;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .radar-ring::before,
+    .radar-ring::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      inset: 12%;
+      border: 1px dashed rgba(40, 215, 255, .1);
+    }
+
+    .radar-ring::after { inset: 26%; }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .table-wrap {
+      height: calc(100% - 32px);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+
+    thead { color: #63b9da; background: rgba(30, 118, 165, .08); }
+    th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid rgba(79, 141, 171, .09); }
+    td { color: #bdd7e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 46px;
+      padding: 3px 7px;
+      border-radius: 2px;
+      font-size: 10px;
+      color: var(--green);
+      background: rgba(57, 244, 164, .08);
+      border: 1px solid rgba(57, 244, 164, .24);
+    }
+
+    .tag.warn { color: var(--yellow); background: rgba(255, 209, 102, .08); border-color: rgba(255, 209, 102, .24); }
+    .tag.error { color: var(--red); background: rgba(255, 91, 115, .08); border-color: rgba(255, 91, 115, .24); }
+
+    .alarm-list {
+      height: calc(100% - 32px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 8px;
+    }
+
+    .alarm-item {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 9px;
+      background: rgba(25, 62, 85, .18);
+      border-left: 2px solid var(--cyan);
+      font-size: 11px;
+    }
+
+    .alarm-item.error { border-left-color: var(--red); }
+    .alarm-item.warn { border-left-color: var(--yellow); }
+    .alarm-time { font-family: Consolas, monospace; color: #6a9cb1; }
+    .alarm-msg { color: #c5e3ee; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .alarm-level { color: var(--cyan); }
+    .alarm-item.error .alarm-level { color: var(--red); }
+    .alarm-item.warn .alarm-level { color: var(--yellow); }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 12px;
+      border-top: 1px solid rgba(40, 215, 255, .13);
+      color: #4d8198;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+
+    .footer strong { color: #74c9e9; font-weight: 500; }
+
+    @media (max-width: 1280px) {
+      .dashboard { grid-template-rows: auto auto auto 42px; }
+      .metrics { grid-template-columns: repeat(3, 1fr); }
+      .main-grid { grid-template-columns: 1fr 1.4fr; }
+      .main-grid > .column:last-child { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); grid-template-rows: 280px; }
+    }
+
+    @media (max-width: 900px) {
+      .header { grid-template-columns: 1fr; padding: 10px; }
+      .header-left, .header-right { display: none; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .main-grid { display: flex; flex-direction: column; }
+      .column { grid-template-rows: repeat(3, 280px); }
+      .center-column { grid-template-rows: 480px 580px; }
+      .bottom-grid { grid-template-columns: 1fr; }
+      .main-grid > .column:last-child { display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(3, 280px); }
+    }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <header class="header">
+      <div class="header-left">
+        <span class="status-dot"></span>
+        <span>DATA CENTER ONLINE</span>
+        <span>集群状态：正常</span>
+      </div>
+      <div>
+        <h1 class="title">企业级大数据可视化驾驶舱</h1>
+        <span class="subtitle">ENTERPRISE DATA INTELLIGENCE COMMAND CENTER</span>
+      </div>
+      <div class="header-right">
+        <span id="dateText"></span>
+        <span id="clockText"></span>
+      </div>
+    </header>
+
+    <section class="metrics">
+      <article class="metric-card">
+        <div class="metric-label"><span>今日访问量</span><span class="metric-trend">▲ 12.8%</span></div>
+        <div class="metric-value" data-target="2839642">0<span class="metric-unit">次</span></div>
+      </article>
+      <article class="metric-card">
+        <div class="metric-label"><span>实时在线用户</span><span class="metric-trend">▲ 8.2%</span></div>
+        <div class="metric-value" data-target="86542">0<span class="metric-unit">人</span></div>
+      </article>
+      <article class="metric-card">
+        <div class="metric-label"><span>今日成交额</span><span class="metric-trend">▲ 15.6%</span></div>
+        <div class="metric-value" data-target="1865.42">0<span class="metric-unit">万元</span></div>
+      </article>
+      <article class="metric-card">
+        <div class="metric-label"><span>数据处理量</span><span class="metric-trend">▲ 6.9%</span></div>
+        <div class="metric-value" data-target="28.7">0<span class="metric-unit">TB</span></div>
+      </article>
+      <article class="metric-card">
+        <div class="metric-label"><span>服务可用率</span><span class="metric-trend">▲ 0.05%</span></div>
+        <div class="metric-value" data-target="99.99">0<span class="metric-unit">%</span></div>
+      </article>
+      <article class="metric-card">
+        <div class="metric-label"><span>风险事件</span><span class="metric-trend down">▼ 18.3%</span></div>
+        <div class="metric-value" data-target="27">0<span class="metric-unit">起</span></div>
+      </article>
+    </section>
+
+    <section class="main-grid">
+      <div class="column">
+        <section class="panel">
+          <div class="panel-title">访问流量趋势 <span>REAL-TIME TRAFFIC</span></div>
+          <div id="trafficChart" class="chart"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-title">用户画像分布 <span>USER PROFILE</span></div>
+          <div id="profileChart" class="chart"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-title">渠道转化排行 <span>CHANNEL RANKING</span></div>
+          <div id="channelChart" class="chart"></div>
+        </section>
+      </div>
+
+      <div class="center-column">
+        <section class="panel hero-panel">
+          <div class="hero-head">
+            <h2>全国业务节点实时态势</h2>
+            <div class="hero-status">
+              <span>活跃节点 <b>128</b></span>
+              <span>数据链路 <b>1,860</b></span>
+              <span>QPS <b id="qpsText">82,640</b></span>
+            </div>
+          </div>
+          <div class="radar-ring"></div>
+          <div id="networkChart" class="chart" style="height:100%"></div>
+        </section>
+
+        <div class="bottom-grid">
+          <section class="panel">
+            <div class="panel-title">核心业务运行明细 <span>BUSINESS STATUS</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>业务系统</th><th>负责人</th><th>吞吐量</th><th>延迟</th><th>状态</th></tr>
+                </thead>
+                <tbody id="businessTable"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">实时告警中心 <span>ALARM CENTER</span></div>
+            <div class="alarm-list" id="alarmList"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="column">
+        <section class="panel">
+          <div class="panel-title">设备健康度 <span>DEVICE HEALTH</span></div>
+          <div id="healthChart" class="chart"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-title">业务类型占比 <span>BUSINESS SHARE</span></div>
+          <div id="businessChart" class="chart"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-title">区域营收排行 <span>REGION REVENUE</span></div>
+          <div id="regionChart" class="chart"></div>
+        </section>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>数据来源：<strong>实时数据中台 / Kafka / Flink / ClickHouse</strong></span>
+      <span>最后刷新：<strong id="refreshText">--:--:--</strong></span>
+      <span>系统版本：<strong>Dashboard Enterprise v1.0</strong></span>
+    </footer>
+  </main>
+
+  <script>
+    const colors = {
+      cyan: '#28d7ff', blue: '#2979ff', green: '#39f4a4', yellow: '#ffd166', red: '#ff5b73', purple: '#a675ff', text: '#d9f4ff', muted: '#79a2b7'
+    };
+
+    const charts = [];
+    const axisCommon = {
+      axisLine: { lineStyle: { color: 'rgba(100,180,210,.22)' } },
+      axisTick: { show: false },
+      axisLabel: { color: '#6f9caf', fontSize: 10 },
+      splitLine: { lineStyle: { color: 'rgba(100,180,210,.08)' } }
+    };
+
+    function initChart(id, option) {
+      const chart = echarts.init(document.getElementById(id));
+      chart.setOption(option);
+      charts.push(chart);
+      return chart;
+    }
+
+    const trafficData = [520, 610, 690, 640, 780, 860, 920, 980, 1080, 1160, 1240, 1380];
+    const trafficChart = initChart('trafficChart', {
+      grid: { left: 44, right: 16, top: 24, bottom: 28 },
+      tooltip: { trigger: 'axis', backgroundColor: 'rgba(6,20,38,.95)', borderColor: colors.cyan, textStyle: { color: '#dff8ff' } },
+      xAxis: { type: 'category', data: ['00','02','04','06','08','10','12','14','16','18','20','22'], boundaryGap: false, ...axisCommon },
+      yAxis: { type: 'value', ...axisCommon },
+      series: [{
+        type: 'line', smooth: true, symbol: 'none', data: trafficData,
+        lineStyle: { color: colors.cyan, width: 2 },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(40,215,255,.35)'},{offset:1,color:'rgba(40,215,255,.01)'}]) }
+      }]
+    });
+
+    initChart('profileChart', {
+      radar: {
+        radius: '68%', splitNumber: 4,
+        indicator: [
+          { name: '活跃度', max: 100 }, { name: '消费力', max: 100 }, { name: '忠诚度', max: 100 },
+          { name: '传播力', max: 100 }, { name: '增长性', max: 100 }, { name: '风险度', max: 100 }
+        ],
+        axisName: { color: '#84b5c8', fontSize: 10 },
+        axisLine: { lineStyle: { color: 'rgba(100,190,220,.18)' } },
+        splitLine: { lineStyle: { color: 'rgba(100,190,220,.15)' } },
+        splitArea: { areaStyle: { color: ['rgba(16,56,82,.05)','rgba(16,56,82,.13)'] } }
+      },
+      series: [{ type: 'radar', data: [{ value: [86, 76, 72, 90, 84, 28] }],
+        symbolSize: 4, itemStyle: { color: colors.green }, lineStyle: { color: colors.green },
+        areaStyle: { color: 'rgba(57,244,164,.22)' }
+      }]
+    });
+
+    initChart('channelChart', {
+      grid: { left: 70, right: 20, top: 18, bottom: 18 },
+      xAxis: { type: 'value', max: 100, show: false },
+      yAxis: { type: 'category', inverse: true, data: ['自然搜索','短视频','信息流广告','私域社群','线下活动'], axisLine: { show:false }, axisTick:{show:false}, axisLabel:{color:'#8bb4c5',fontSize:10} },
+      series: [{
+        type:'bar', data:[92,86,73,64,51], barWidth:9, showBackground:true,
+        backgroundStyle:{color:'rgba(80,150,180,.08)'},
+        itemStyle:{borderRadius:8,color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#1e7cff'},{offset:1,color:'#28d7ff'}])},
+        label:{show:true,position:'right',color:'#bdefff',formatter:'{c}%'}
+      }]
+    });
+
+    const networkNodes = [
+      {name:'数据中台',x:500,y:260,symbolSize:72,value:100,itemStyle:{color:'#28d7ff'}},
+      {name:'北京',x:380,y:120,symbolSize:34,value:78},{name:'上海',x:650,y:180,symbolSize:39,value:86},
+      {name:'深圳',x:620,y:380,symbolSize:36,value:82},{name:'成都',x:330,y:360,symbolSize:31,value:69},
+      {name:'武汉',x:470,y:380,symbolSize:28,value:64},{name:'杭州',x:690,y:285,symbolSize:29,value:71},
+      {name:'西安',x:295,y:230,symbolSize:26,value:57},{name:'广州',x:520,y:440,symbolSize:29,value:68},
+      {name:'南京',x:730,y:100,symbolSize:24,value:52},{name:'重庆',x:250,y:440,symbolSize:23,value:48},
+      {name:'海外节点',x:820,y:300,symbolSize:30,value:73,itemStyle:{color:'#a675ff'}}
+    ].map((n, i) => ({
+      ...n,
+      label:{show:true,position:'bottom',color:'#b9e8f7',fontSize:i===0?12:10},
+      itemStyle:n.itemStyle || { color: i % 2 ? '#2979ff' : '#39f4a4', shadowBlur:18, shadowColor:'rgba(40,215,255,.4)' }
+    }));
+
+    const links = networkNodes.slice(1).map((n,i)=>({source:'数据中台',target:n.name,value:30+i*5}));
+    links.push({source:'北京',target:'上海'},{source:'上海',target:'杭州'},{source:'深圳',target:'广州'},{source:'成都',target:'重庆'},{source:'武汉',target:'西安'},{source:'上海',target:'海外节点'});
+
+    const networkChart = initChart('networkChart', {
+      tooltip:{backgroundColor:'rgba(6,20,38,.95)',borderColor:colors.cyan,textStyle:{color:'#dff8ff'}},
+      series:[{
+        type:'graph', layout:'none', roam:true, data:networkNodes, links,
+        lineStyle:{color:'source',curveness:.18,width:1.2,opacity:.5},
+        emphasis:{focus:'adjacency',lineStyle:{width:2}},
+        symbol:'circle', animationDurationUpdate:900
+      }]
+    });
+
+    initChart('healthChart', {
+      series:[{
+        type:'gauge', center:['50%','55%'], radius:'82%', startAngle:205, endAngle:-25,
+        min:0,max:100, splitNumber:5,
+        progress:{show:true,width:13,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#2979ff'},{offset:1,color:'#39f4a4'}])}},
+        axisLine:{lineStyle:{width:13,color:[[1,'rgba(80,150,180,.12)']]}},
+        axisTick:{show:false}, splitLine:{show:false}, axisLabel:{color:'#668fa0',fontSize:9,distance:18},
+        pointer:{length:'58%',width:4,itemStyle:{color:'#dffaff'}}, anchor:{show:true,size:8,itemStyle:{color:colors.cyan}},
+        detail:{valueAnimation:true,formatter:'{value}%\n健康',color:'#e6fbff',fontSize:22,offsetCenter:[0,'55%']},
+        title:{show:false}, data:[{value:96.8}]
+      }]
+    });
+
+    initChart('businessChart', {
+      tooltip:{trigger:'item'},
+      legend:{bottom:2,textStyle:{color:'#7fa7b9',fontSize:10},itemWidth:8,itemHeight:8},
+      series:[{
+        type:'pie',radius:['42%','68%'],center:['50%','45%'],avoidLabelOverlap:true,
+        itemStyle:{borderColor:'#071429',borderWidth:3},
+        label:{color:'#a9cbd8',fontSize:10,formatter:'{b}\n{d}%'},
+        data:[
+          {value:36,name:'电商',itemStyle:{color:colors.cyan}},
+          {value:24,name:'金融',itemStyle:{color:colors.blue}},
+          {value:18,name:'制造',itemStyle:{color:colors.green}},
+          {value:13,name:'政务',itemStyle:{color:colors.yellow}},
+          {value:9,name:'其他',itemStyle:{color:colors.purple}}
+        ]
+      }]
+    });
+
+    initChart('regionChart', {
+      grid:{left:64,right:42,top:18,bottom:20},
+      xAxis:{type:'value',show:false},
+      yAxis:{type:'category',inverse:true,data:['华东','华南','华北','西南','华中','西北'],axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#88b2c3',fontSize:10}},
+      series:[{
+        type:'bar',data:[1865,1520,1310,960,840,620],barWidth:10,
+        itemStyle:{borderRadius:6,color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#234df2'},{offset:1,color:'#28d7ff'}])},
+        label:{show:true,position:'right',color:'#c6efff',formatter:'{c}万'}
+      }]
+    });
+
+    const businessRows = [
+      ['用户中心','林工','23.8K/s','18ms','正常'],
+      ['订单中心','陈工','18.2K/s','26ms','正常'],
+      ['支付网关','赵工','12.7K/s','31ms','关注'],
+      ['推荐引擎','王工','32.4K/s','22ms','正常'],
+      ['风控平台','李工','9.6K/s','48ms','告警']
+    ];
+
+    function renderBusinessTable() {
+      document.getElementById('businessTable').innerHTML = businessRows.map(row => {
+        const cls = row[4] === '正常' ? '' : row[4] === '关注' ? 'warn' : 'error';
+        return `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td><span class="tag ${cls}">${row[4]}</span></td></tr>`;
+      }).join('');
+    }
+
+    const alarms = [
+      ['09:42:18','华东节点 CPU 瞬时负载超过 85%','警告','warn'],
+      ['09:39:54','支付网关 P99 延迟升高至 128ms','严重','error'],
+      ['09:35:12','Kafka 消费积压已自动恢复','恢复',''],
+      ['09:28:33','海外链路丢包率达到 1.7%','警告','warn'],
+      ['09:20:07','风控规则命中率异常波动','严重','error']
+    ];
+
+    function renderAlarms() {
+      document.getElementById('alarmList').innerHTML = alarms.map(a => `
+        <div class="alarm-item ${a[3]}">
+          <span class="alarm-time">${a[0]}</span>
+          <span class="alarm-msg">${a[1]}</span>
+          <span class="alarm-level">${a[2]}</span>
+        </div>`).join('');
+    }
+
+    function animateMetrics() {
+      document.querySelectorAll('.metric-value').forEach(el => {
+        const target = Number(el.dataset.target);
+        const unit = el.querySelector('.metric-unit')?.outerHTML || '';
+        const decimals = String(target).includes('.') ? 2 : 0;
+        const start = performance.now();
+        const duration = 1400;
+        const run = now => {
+          const p = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          const value = target * eased;
+          const text = decimals ? value.toFixed(decimals) : Math.round(value).toLocaleString('zh-CN');
+          el.innerHTML = text + unit;
+          if (p < 1) requestAnimationFrame(run);
+        };
+        requestAnimationFrame(run);
+      });
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('dateText').textContent = now.toLocaleDateString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});
+      document.getElementById('clockText').textContent = now.toLocaleTimeString('zh-CN', {hour12:false});
+      document.getElementById('refreshText').textContent = now.toLocaleTimeString('zh-CN', {hour12:false});
+    }
+
+    function liveUpdate() {
+      trafficData.shift();
+      trafficData.push(Math.max(720, Math.round(trafficData.at(-1) + (Math.random()-.42)*180)));
+      trafficChart.setOption({ series:[{data:trafficData}] });
+      const qps = 78000 + Math.round(Math.random()*11000);
+      document.getElementById('qpsText').textContent = qps.toLocaleString();
+    }
+
+    renderBusinessTable();
+    renderAlarms();
+    animateMetrics();
+    updateClock();
+    setInterval(updateClock, 500);
+    setInterval(liveUpdate, 800);
+    window.addEventListener('resize', () => charts.forEach(c => c.resize()));
+  </script>
+</body>
+</html>

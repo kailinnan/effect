@@ -7,6 +7,8 @@ WebView2 将页面挂载到桌面图标层后方。
 
 从仓库根目录启动：
 
+dist/effect.exe
+
 ```powershell
 cargo run
 ```
